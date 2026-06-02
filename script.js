@@ -23,6 +23,8 @@ const guideSummary = document.querySelector("#guideSummary");
 const guideDetailPanel = document.querySelector("#guideDetailPanel");
 const guideBackButton = document.querySelector("#guideBackButton");
 const mobileControlButtons = document.querySelectorAll("[data-direction], [data-dir]");
+const gestureJoystick = document.querySelector("#gestureJoystick");
+const gestureJoystickKnob = document.querySelector(".gesture-joystick-knob");
 
 const gridSize = 24;
 const cellSize = canvas.width / gridSize;
@@ -266,6 +268,12 @@ let soundEnabled = true;
 let audioContext = null;
 let hasStartedOnce = false;
 let mobileWaitingForInput = false;
+let gestureStartX = 0;
+let gestureStartY = 0;
+let gestureActive = false;
+let activePointerId = null;
+const joystickRadius = 42;
+const directionThreshold = 18;
 let touchStartX = 0;
 let touchStartY = 0;
 let isTouchTracking = false;
@@ -345,6 +353,7 @@ function startGame() {
   hasStartedOnce = true;
   ensureAudioReady();
   playSound("ui");
+  resetGestureJoystick();
   clearTimeout(moveTimer);
   pausedAt = 0;
   setupBoard();
@@ -356,7 +365,7 @@ function startGame() {
     overlay.classList.remove("is-hidden");
     overlayKicker.textContent = "准备好了";
     overlayTitle.textContent = "选择方向开始";
-    overlayText.textContent = "点击底部方向盘，或在棋盘上滑动。第一次方向输入后蛇才会移动。";
+    overlayText.textContent = "按住屏幕空白处并拖动，或在棋盘上滑动。第一次有效方向输入后蛇才会移动。";
     statusText.textContent = "选择方向开始";
     return;
   }
@@ -378,6 +387,7 @@ function handleStartButtonClick() {
 function showStartScreen() {
   gameState = "ready";
   mobileWaitingForInput = false;
+  resetGestureJoystick();
   overlay.classList.remove("is-hidden");
   overlayKicker.textContent = "准备开始";
   overlayTitle.textContent = "影子贪吃蛇";
@@ -437,6 +447,7 @@ function togglePause() {
 function pauseGame() {
   gameState = "paused";
   pausedAt = performance.now();
+  resetGestureJoystick();
   clearTimeout(moveTimer);
   playSound("pause");
 
@@ -565,6 +576,10 @@ function handleDirectionInput(direction) {
 }
 
 function isMobileControlMode() {
+  if (navigator.maxTouchPoints > 0) {
+    return true;
+  }
+
   if (mobileControlQuery) {
     return mobileControlQuery.matches;
   }
@@ -583,6 +598,8 @@ function setupMobileControls() {
     button.addEventListener("touchcancel", clearMobileControlActiveState, { passive: false });
   });
 
+  setupGestureJoystick();
+
   if (!boardWrap) {
     return;
   }
@@ -591,6 +608,115 @@ function setupMobileControls() {
   boardWrap.addEventListener("touchmove", handleBoardTouchMove, { passive: false });
   boardWrap.addEventListener("touchend", handleBoardTouchEnd, { passive: false });
   boardWrap.addEventListener("touchcancel", handleBoardTouchCancel, { passive: false });
+}
+
+function setupGestureJoystick() {
+  if (!gestureJoystick || !gestureJoystickKnob) {
+    return;
+  }
+
+  document.addEventListener("pointerdown", handleGesturePointerDown, { passive: false });
+  document.addEventListener("pointermove", handleGesturePointerMove, { passive: false });
+  document.addEventListener("pointerup", handleGesturePointerEnd, { passive: false });
+  document.addEventListener("pointercancel", handleGesturePointerEnd, { passive: false });
+}
+
+function handleGesturePointerDown(event) {
+  if (!isMobileControlMode() || gameState !== "playing" || gestureActive) {
+    return;
+  }
+
+  if (isGestureControlBlocked(event.target)) {
+    return;
+  }
+
+  event.preventDefault();
+  event.stopPropagation();
+  ensureAudioReady();
+
+  gestureStartX = event.clientX;
+  gestureStartY = event.clientY;
+  activePointerId = event.pointerId;
+  gestureActive = true;
+
+  gestureJoystick.classList.add("is-active");
+  gestureJoystick.style.left = gestureStartX + "px";
+  gestureJoystick.style.top = gestureStartY + "px";
+  resetGestureJoystickKnob();
+}
+
+function handleGesturePointerMove(event) {
+  if (!gestureActive || event.pointerId !== activePointerId) {
+    return;
+  }
+
+  event.preventDefault();
+  event.stopPropagation();
+
+  const dx = event.clientX - gestureStartX;
+  const dy = event.clientY - gestureStartY;
+  const distance = Math.hypot(dx, dy);
+  const limitedDistance = Math.min(distance, joystickRadius);
+  const angle = Math.atan2(dy, dx);
+  const knobX = Math.cos(angle) * limitedDistance;
+  const knobY = Math.sin(angle) * limitedDistance;
+
+  gestureJoystickKnob.style.transform =
+    "translate(calc(-50% + " + knobX + "px), calc(-50% + " + knobY + "px))";
+
+  if (distance < directionThreshold) {
+    return;
+  }
+
+  handleDirectionInput(getGestureDirection(dx, dy));
+}
+
+function handleGesturePointerEnd(event) {
+  if (!gestureActive || event.pointerId !== activePointerId) {
+    return;
+  }
+
+  event.preventDefault();
+  event.stopPropagation();
+  resetGestureJoystick();
+}
+
+function isGestureControlBlocked(target) {
+  if (!target || !target.closest) {
+    return false;
+  }
+
+  return Boolean(target.closest("button") || target.closest(".control-bar"));
+}
+
+function getGestureDirection(dx, dy) {
+  if (Math.abs(dx) > Math.abs(dy)) {
+    return dx > 0 ? { x: 1, y: 0 } : { x: -1, y: 0 };
+  }
+
+  return dy > 0 ? { x: 0, y: 1 } : { x: 0, y: -1 };
+}
+
+function resetGestureJoystick() {
+  gestureActive = false;
+  activePointerId = null;
+  gestureStartX = 0;
+  gestureStartY = 0;
+
+  if (!gestureJoystick || !gestureJoystickKnob) {
+    return;
+  }
+
+  gestureJoystick.classList.remove("is-active");
+  resetGestureJoystickKnob();
+}
+
+function resetGestureJoystickKnob() {
+  if (!gestureJoystickKnob) {
+    return;
+  }
+
+  gestureJoystickKnob.style.transform = "translate(-50%, -50%)";
 }
 
 function getDirectionByName(directionName) {
@@ -1343,6 +1469,7 @@ function spawnClearRipple(cell) {
 function endGame(reason) {
   gameState = "ended";
   mobileWaitingForInput = false;
+  resetGestureJoystick();
   clearTimeout(moveTimer);
   activeEffect = {
     type: null,

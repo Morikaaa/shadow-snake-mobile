@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
   <title>影子贪吃蛇</title>
-  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="style.css?v=20260602-gesture">
 </head>
 <body>
   <main class="game-shell">
@@ -173,14 +173,11 @@
     </p>
   </main>
 
-  <div class="mobile-joystick" aria-label="移动端方向控制">
-    <button class="joy-btn joy-up" data-dir="up" type="button" aria-label="向上">▲</button>
-    <button class="joy-btn joy-left" data-dir="left" type="button" aria-label="向左">◀</button>
-    <button class="joy-btn joy-center" type="button" tabindex="-1" aria-hidden="true">●</button>
-    <button class="joy-btn joy-right" data-dir="right" type="button" aria-label="向右">▶</button>
-    <button class="joy-btn joy-down" data-dir="down" type="button" aria-label="向下">▼</button>
+  <div id="gestureJoystick" class="gesture-joystick" aria-hidden="true">
+    <div class="gesture-joystick-base"></div>
+    <div class="gesture-joystick-knob"></div>
   </div>
 
-  <script src="script.js"></script>
+  <script src="script.js?v=20260602-gesture"></script>
 </body>
 </html>

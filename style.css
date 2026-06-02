@@ -1497,3 +1497,134 @@ h1 {
     min-height: 48px;
   }
 }
+
+.mobile-joystick {
+  display: none !important;
+}
+
+.gesture-joystick {
+  display: none;
+  position: fixed;
+  left: 0;
+  top: 0;
+  width: 124px;
+  height: 124px;
+  pointer-events: none;
+  opacity: 0;
+  transform: translate(-50%, -50%);
+  z-index: 9999;
+  transition: opacity 0.12s ease;
+}
+
+.gesture-joystick.is-active {
+  opacity: 1;
+}
+
+.gesture-joystick-base {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 1px solid rgba(111, 231, 255, 0.5);
+  background:
+    radial-gradient(circle, rgba(55, 255, 139, 0.14), rgba(5, 7, 13, 0.72));
+  box-shadow:
+    0 0 26px rgba(55, 183, 255, 0.35),
+    inset 0 0 18px rgba(111, 231, 255, 0.12);
+  backdrop-filter: blur(10px);
+}
+
+.gesture-joystick-knob {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  border: 1px solid rgba(55, 255, 139, 0.75);
+  background: rgba(55, 255, 139, 0.22);
+  box-shadow:
+    0 0 18px rgba(55, 255, 139, 0.55),
+    inset 0 0 12px rgba(255, 255, 255, 0.12);
+  transform: translate(-50%, -50%);
+}
+
+@media (max-width: 900px), (pointer: coarse) {
+  :root {
+    --mobile-controls-space: 14px;
+    --board-size: min(calc(100vw - 18px), calc(100svh - 232px), 600px);
+    --board-size: min(calc(100vw - 18px), calc(100dvh - 232px), 600px);
+    --side-width: var(--board-size);
+  }
+
+  html,
+  body {
+    height: 100%;
+    min-height: 100%;
+    overflow: hidden;
+    overscroll-behavior: none;
+    touch-action: none;
+  }
+
+  body {
+    min-height: 100svh;
+    min-height: 100dvh;
+    padding:
+      max(6px, env(safe-area-inset-top))
+      max(6px, env(safe-area-inset-right))
+      max(8px, env(safe-area-inset-bottom))
+      max(6px, env(safe-area-inset-left));
+  }
+
+  .game-shell {
+    max-height: calc(100dvh - 12px);
+    grid-template-rows: auto var(--board-size) auto;
+  }
+
+  .board-wrap,
+  #gameCanvas {
+    touch-action: none;
+    overscroll-behavior: contain;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+
+  .mobile-control-pad,
+  .mobile-control-tip,
+  .mobile-joystick {
+    display: none !important;
+  }
+
+  .gesture-joystick {
+    display: block;
+  }
+}
+
+@media (max-width: 480px) and (pointer: coarse) {
+  :root {
+    --board-size: min(calc(100vw - 16px), calc(100svh - 218px), 430px);
+    --board-size: min(calc(100vw - 16px), calc(100dvh - 218px), 430px);
+  }
+}
+
+@media (max-height: 680px) and (max-width: 900px) and (pointer: coarse) {
+  :root {
+    --board-size: min(calc(100vw - 16px), calc(100svh - 198px), 430px);
+    --board-size: min(calc(100vw - 16px), calc(100dvh - 198px), 430px);
+  }
+
+  .control-bar {
+    gap: 4px;
+    padding: 5px;
+  }
+}
+
+@media (orientation: landscape) and (max-height: 540px) and (pointer: coarse) {
+  :root {
+    --board-size: min(calc(100dvh - 18px), calc(100vw - 300px), 500px);
+    --side-width: min(276px, calc(100vw - var(--board-size) - 24px));
+  }
+
+  .game-shell {
+    max-height: calc(100dvh - 12px);
+  }
+}
