@@ -22,11 +22,12 @@ const guideDetailButton = document.querySelector("#guideDetailButton");
 const guideSummary = document.querySelector("#guideSummary");
 const guideDetailPanel = document.querySelector("#guideDetailPanel");
 const guideBackButton = document.querySelector("#guideBackButton");
-const mobileControlButtons = document.querySelectorAll("[data-direction]");
+const mobileControlButtons = document.querySelectorAll("[data-direction], [data-dir]");
 
 const gridSize = 24;
 const cellSize = canvas.width / gridSize;
 const bestScoreKey = "shadow-snake-best-score";
+const mobileControlQuery = window.matchMedia ? window.matchMedia("(max-width: 900px), (pointer: coarse)") : null;
 
 const trailLife = 2800;
 const shadowFadeTime = 2800;
@@ -264,6 +265,7 @@ let statusOverride = {
 let soundEnabled = true;
 let audioContext = null;
 let hasStartedOnce = false;
+let mobileWaitingForInput = false;
 let touchStartX = 0;
 let touchStartY = 0;
 let isTouchTracking = false;
@@ -347,8 +349,19 @@ function startGame() {
   pausedAt = 0;
   setupBoard();
   gameState = "playing";
-  overlay.classList.add("is-hidden");
   startButton.textContent = "重新开局";
+  mobileWaitingForInput = isMobileControlMode();
+
+  if (mobileWaitingForInput) {
+    overlay.classList.remove("is-hidden");
+    overlayKicker.textContent = "准备好了";
+    overlayTitle.textContent = "选择方向开始";
+    overlayText.textContent = "点击底部方向盘，或在棋盘上滑动。第一次方向输入后蛇才会移动。";
+    statusText.textContent = "选择方向开始";
+    return;
+  }
+
+  overlay.classList.add("is-hidden");
   statusText.textContent = "影子正在记录你的路线";
   scheduleNextMove();
 }
@@ -364,6 +377,7 @@ function handleStartButtonClick() {
 
 function showStartScreen() {
   gameState = "ready";
+  mobileWaitingForInput = false;
   overlay.classList.remove("is-hidden");
   overlayKicker.textContent = "准备开始";
   overlayTitle.textContent = "影子贪吃蛇";
@@ -406,7 +420,7 @@ function handleKeyDown(event) {
     return;
   }
 
-  changeDirection(directionMap[key]);
+  handleDirectionInput(directionMap[key]);
 }
 
 function togglePause() {
@@ -508,21 +522,65 @@ function shiftTimedObjects(duration) {
 }
 
 function changeDirection(newDirection) {
+  if (!newDirection) {
+    return false;
+  }
+
   const isReverse =
     currentDirection.x + newDirection.x === 0 &&
     currentDirection.y + newDirection.y === 0;
 
   if (!isReverse) {
-    nextDirection = newDirection;
+    nextDirection = {
+      x: newDirection.x,
+      y: newDirection.y
+    };
+    return true;
   }
+
+  return false;
+}
+
+function handleDirectionInput(direction) {
+  if (gameState !== "playing") {
+    return false;
+  }
+
+  if (!changeDirection(direction)) {
+    if (mobileWaitingForInput) {
+      statusText.textContent = "请选择上、下或右开始";
+    }
+
+    return false;
+  }
+
+  if (mobileWaitingForInput) {
+    mobileWaitingForInput = false;
+    overlay.classList.add("is-hidden");
+    statusText.textContent = "影子正在记录你的路线";
+    scheduleNextMove();
+  }
+
+  return true;
+}
+
+function isMobileControlMode() {
+  if (mobileControlQuery) {
+    return mobileControlQuery.matches;
+  }
+
+  return window.innerWidth <= 900;
 }
 
 function setupMobileControls() {
   mobileControlButtons.forEach(function (button) {
     button.addEventListener("pointerdown", handleMobileControlPointerDown);
+    button.addEventListener("touchstart", handleMobileControlTouchStart, { passive: false });
     button.addEventListener("pointerup", clearMobileControlActiveState);
     button.addEventListener("pointercancel", clearMobileControlActiveState);
     button.addEventListener("pointerleave", clearMobileControlActiveState);
+    button.addEventListener("touchend", clearMobileControlActiveState, { passive: false });
+    button.addEventListener("touchcancel", clearMobileControlActiveState, { passive: false });
   });
 
   if (!boardWrap) {
@@ -532,7 +590,7 @@ function setupMobileControls() {
   boardWrap.addEventListener("touchstart", handleBoardTouchStart, { passive: false });
   boardWrap.addEventListener("touchmove", handleBoardTouchMove, { passive: false });
   boardWrap.addEventListener("touchend", handleBoardTouchEnd, { passive: false });
-  boardWrap.addEventListener("touchcancel", resetBoardTouchTracking, { passive: true });
+  boardWrap.addEventListener("touchcancel", handleBoardTouchCancel, { passive: false });
 }
 
 function getDirectionByName(directionName) {
@@ -547,28 +605,48 @@ function getDirectionByName(directionName) {
 }
 
 function handleMobileControlPointerDown(event) {
-  event.preventDefault();
+  handleMobileControlDirectionEvent(event);
+}
+
+function handleMobileControlTouchStart(event) {
+  handleMobileControlDirectionEvent(event);
+}
+
+function handleMobileControlDirectionEvent(event) {
+  if (event.cancelable) {
+    event.preventDefault();
+  }
+
+  event.stopPropagation();
   ensureAudioReady();
 
   const button = event.currentTarget;
-  const direction = getDirectionByName(button.dataset.direction);
+  const direction = getDirectionByName(button.dataset.direction || button.dataset.dir);
 
   if (!direction) {
     return;
   }
 
   button.classList.add("is-pressed");
-
-  if (gameState === "playing") {
-    changeDirection(direction);
-  }
+  handleDirectionInput(direction);
 }
 
 function clearMobileControlActiveState(event) {
-  event.currentTarget.classList.remove("is-pressed");
+  if (event.cancelable) {
+    event.preventDefault();
+  }
+
+  event.stopPropagation();
+
+  if (event.currentTarget) {
+    event.currentTarget.classList.remove("is-pressed");
+  }
 }
 
 function handleBoardTouchStart(event) {
+  event.preventDefault();
+  event.stopPropagation();
+
   if (event.touches.length !== 1) {
     resetBoardTouchTracking();
     return;
@@ -577,24 +655,28 @@ function handleBoardTouchStart(event) {
   touchStartX = event.touches[0].clientX;
   touchStartY = event.touches[0].clientY;
   isTouchTracking = true;
-
-  if (gameState === "playing") {
-    event.preventDefault();
-  }
 }
 
 function handleBoardTouchMove(event) {
-  if (isTouchTracking && gameState === "playing") {
-    event.preventDefault();
-  }
+  event.preventDefault();
+  event.stopPropagation();
 }
 
 function handleBoardTouchEnd(event) {
+  event.preventDefault();
+  event.stopPropagation();
+
   if (!isTouchTracking) {
     return;
   }
 
   const touch = event.changedTouches[0];
+
+  if (!touch) {
+    resetBoardTouchTracking();
+    return;
+  }
+
   const deltaX = touch.clientX - touchStartX;
   const deltaY = touch.clientY - touchStartY;
   const absX = Math.abs(deltaX);
@@ -607,13 +689,17 @@ function handleBoardTouchEnd(event) {
     return;
   }
 
-  event.preventDefault();
-
   if (absX > absY) {
-    changeDirection(deltaX > 0 ? { x: 1, y: 0 } : { x: -1, y: 0 });
+    handleDirectionInput(deltaX > 0 ? { x: 1, y: 0 } : { x: -1, y: 0 });
   } else {
-    changeDirection(deltaY > 0 ? { x: 0, y: 1 } : { x: 0, y: -1 });
+    handleDirectionInput(deltaY > 0 ? { x: 0, y: 1 } : { x: 0, y: -1 });
   }
+}
+
+function handleBoardTouchCancel(event) {
+  event.preventDefault();
+  event.stopPropagation();
+  resetBoardTouchTracking();
 }
 
 function resetBoardTouchTracking() {
@@ -625,7 +711,7 @@ function resetBoardTouchTracking() {
 function scheduleNextMove() {
   clearTimeout(moveTimer);
 
-  if (gameState !== "playing") {
+  if (gameState !== "playing" || mobileWaitingForInput) {
     return;
   }
 
@@ -1003,6 +1089,7 @@ function triggerShadowRewind(now) {
     warningMarks: {}
   };
   overlay.classList.add("is-hidden");
+  mobileWaitingForInput = false;
   gameState = "playing";
   addFloatingText(snake[0], "影子回溯", "#d7f5ff", 1200);
   spawnParticles(snake[0], "rewind", 38);
@@ -1255,6 +1342,7 @@ function spawnClearRipple(cell) {
 
 function endGame(reason) {
   gameState = "ended";
+  mobileWaitingForInput = false;
   clearTimeout(moveTimer);
   activeEffect = {
     type: null,
@@ -1898,7 +1986,9 @@ function drawFrame(now) {
   updateEffectText(renderTime);
   updateComboText(renderTime);
 
-  if (gameState === "playing") {
+  if (gameState === "playing" && mobileWaitingForInput) {
+    statusText.textContent = "选择方向开始";
+  } else if (gameState === "playing") {
     const powerText = getPowerUpStatusText(renderTime);
     const effectStatus = effectText.textContent === "无" ? "无当前效果" : effectText.textContent;
     const shadowText = "预警影子 " + formingShadows.length + " 个 · 实体影子 " + shadowObstacles.length + " 个";

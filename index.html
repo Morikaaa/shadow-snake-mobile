@@ -165,14 +165,6 @@
       </div>
       <button id="soundButton" class="secondary-button sound-button" type="button">音效：开</button>
 
-      <div class="mobile-control-pad" aria-label="移动端方向控制">
-        <button class="touch-dir touch-dir-up" data-direction="up" type="button" aria-label="向上">▲</button>
-        <button class="touch-dir touch-dir-left" data-direction="left" type="button" aria-label="向左">◀</button>
-        <button class="touch-dir touch-dir-down" data-direction="down" type="button" aria-label="向下">▼</button>
-        <button class="touch-dir touch-dir-right" data-direction="right" type="button" aria-label="向右">▶</button>
-      </div>
-      <p class="mobile-control-tip">手机端也可以直接在棋盘上滑动转向。</p>
-
       <p id="statusText">等待开始</p>
     </footer>
 
@@ -180,6 +172,14 @@
       玩家过去的路线会转化为影子障碍，后期通过外观进化、道具、缩身和回溯管理风险。
     </p>
   </main>
+
+  <div class="mobile-joystick" aria-label="移动端方向控制">
+    <button class="joy-btn joy-up" data-dir="up" type="button" aria-label="向上">▲</button>
+    <button class="joy-btn joy-left" data-dir="left" type="button" aria-label="向左">◀</button>
+    <button class="joy-btn joy-center" type="button" tabindex="-1" aria-hidden="true">●</button>
+    <button class="joy-btn joy-right" data-dir="right" type="button" aria-label="向右">▶</button>
+    <button class="joy-btn joy-down" data-dir="down" type="button" aria-label="向下">▼</button>
+  </div>
 
   <script src="script.js"></script>
 </body>

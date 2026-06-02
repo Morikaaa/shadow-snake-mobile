@@ -237,6 +237,10 @@ h1 {
   border: 1px solid rgba(111, 231, 255, 0.22);
   border-radius: 8px;
   background: #03050a;
+  overscroll-behavior: contain;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 #gameCanvas {
@@ -244,6 +248,10 @@ h1 {
   width: var(--board-size);
   height: var(--board-size);
   background: #03050a;
+  overscroll-behavior: contain;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 .overlay {
@@ -742,11 +750,13 @@ h1 {
 
 
 .mobile-control-pad,
-.mobile-control-tip {
+.mobile-control-tip,
+.mobile-joystick {
   display: none;
 }
 
-.touch-dir {
+.touch-dir,
+.joy-btn {
   border: 1px solid rgba(111, 231, 255, 0.24);
   border-radius: 12px;
   color: var(--text);
@@ -762,11 +772,13 @@ h1 {
   cursor: pointer;
   user-select: none;
   -webkit-user-select: none;
-  touch-action: manipulation;
+  touch-action: none;
 }
 
 .touch-dir:active,
-.touch-dir.is-pressed {
+.touch-dir.is-pressed,
+.joy-btn:active,
+.joy-btn.is-pressed {
   border-color: rgba(55, 255, 139, 0.72);
   color: #021108;
   background: var(--green);
@@ -1274,5 +1286,214 @@ h1 {
 
   .mobile-control-pad {
     width: 100%;
+  }
+}
+
+@media (max-width: 900px), (pointer: coarse) {
+  :root {
+    --mobile-controls-space: 150px;
+    --board-size: min(calc(100vw - 18px), calc(100svh - 360px), 560px);
+    --board-size: min(calc(100vw - 18px), calc(100dvh - 360px), 560px);
+    --side-width: var(--board-size);
+  }
+
+  html,
+  body {
+    width: 100%;
+    height: 100%;
+    min-height: 100%;
+    overflow: hidden;
+    overscroll-behavior: none;
+  }
+
+  body {
+    min-height: 100svh;
+    min-height: 100dvh;
+    padding:
+      max(6px, env(safe-area-inset-top))
+      max(6px, env(safe-area-inset-right))
+      calc(env(safe-area-inset-bottom) + var(--mobile-controls-space))
+      max(6px, env(safe-area-inset-left));
+    place-items: center;
+  }
+
+  .game-shell {
+    width: min(100%, 620px);
+    max-width: calc(100vw - 12px);
+    max-height: calc(100dvh - var(--mobile-controls-space) - 12px);
+    grid-template-columns: 1fr;
+    grid-template-rows: auto var(--board-size) auto;
+    grid-template-areas:
+      "top"
+      "board"
+      "controls";
+    gap: 5px;
+    padding: 6px;
+  }
+
+  .stats div:nth-child(4),
+  .stats div:nth-child(6) {
+    display: none;
+  }
+
+  .board-wrap,
+  #gameCanvas {
+    justify-self: center;
+    width: var(--board-size);
+    height: var(--board-size);
+    aspect-ratio: 1 / 1;
+  }
+
+  .control-bar {
+    padding: 6px;
+    gap: 5px;
+  }
+
+  .primary-button,
+  .secondary-button {
+    min-height: 38px;
+    padding: 7px 8px;
+  }
+
+  .mobile-control-pad,
+  .mobile-control-tip {
+    display: none;
+  }
+
+  .mobile-joystick {
+    position: fixed;
+    left: 50%;
+    bottom: calc(env(safe-area-inset-bottom) + 18px);
+    z-index: 50;
+    display: grid;
+    grid-template-columns: repeat(3, 58px);
+    grid-template-rows: repeat(3, 58px);
+    gap: 7px;
+    padding: 8px;
+    border: 1px solid rgba(111, 231, 255, 0.28);
+    border-radius: 18px;
+    background:
+      radial-gradient(circle at 50% 50%, rgba(55, 255, 139, 0.12), transparent 62%),
+      rgba(5, 7, 13, 0.74);
+    box-shadow:
+      0 0 26px rgba(55, 183, 255, 0.28),
+      inset 0 0 22px rgba(111, 231, 255, 0.08);
+    backdrop-filter: blur(12px);
+    transform: translateX(-50%);
+    -webkit-user-select: none;
+    user-select: none;
+    touch-action: none;
+  }
+
+  .joy-btn {
+    min-width: 58px;
+    min-height: 58px;
+    padding: 0;
+    border-radius: 14px;
+    font-size: 21px;
+  }
+
+  .joy-up {
+    grid-column: 2;
+    grid-row: 1;
+  }
+
+  .joy-left {
+    grid-column: 1;
+    grid-row: 2;
+  }
+
+  .joy-center {
+    grid-column: 2;
+    grid-row: 2;
+    pointer-events: none;
+    color: rgba(238, 247, 255, 0.48);
+    background:
+      radial-gradient(circle, rgba(55, 255, 139, 0.2), rgba(55, 183, 255, 0.08));
+  }
+
+  .joy-right {
+    grid-column: 3;
+    grid-row: 2;
+  }
+
+  .joy-down {
+    grid-column: 2;
+    grid-row: 3;
+  }
+}
+
+@media (max-width: 480px) and (pointer: coarse) {
+  :root {
+    --board-size: min(calc(100vw - 16px), calc(100svh - 344px), 430px);
+    --board-size: min(calc(100vw - 16px), calc(100dvh - 344px), 430px);
+  }
+
+  .mobile-joystick {
+    grid-template-columns: repeat(3, 56px);
+    grid-template-rows: repeat(3, 56px);
+    gap: 6px;
+    padding: 7px;
+  }
+
+  .joy-btn {
+    min-width: 56px;
+    min-height: 56px;
+  }
+}
+
+@media (max-height: 680px) and (max-width: 900px) and (pointer: coarse) {
+  :root {
+    --mobile-controls-space: 138px;
+    --board-size: min(calc(100vw - 16px), calc(100svh - 312px), 430px);
+    --board-size: min(calc(100vw - 16px), calc(100dvh - 312px), 430px);
+  }
+
+  .mobile-joystick {
+    grid-template-columns: repeat(3, 52px);
+    grid-template-rows: repeat(3, 52px);
+  }
+
+  .joy-btn {
+    min-width: 52px;
+    min-height: 52px;
+    font-size: 19px;
+  }
+}
+
+@media (orientation: landscape) and (max-height: 540px) and (pointer: coarse) {
+  :root {
+    --mobile-controls-space: 8px;
+    --board-size: min(calc(100dvh - 18px), calc(100vw - 300px), 500px);
+    --side-width: min(276px, calc(100vw - var(--board-size) - 24px));
+  }
+
+  body {
+    padding:
+      max(6px, env(safe-area-inset-top))
+      max(6px, env(safe-area-inset-right))
+      max(6px, env(safe-area-inset-bottom))
+      max(6px, env(safe-area-inset-left));
+  }
+
+  .game-shell {
+    width: fit-content;
+    max-height: calc(100dvh - 12px);
+    grid-template-columns: var(--board-size) var(--side-width);
+    grid-template-rows: auto auto;
+    grid-template-areas:
+      "board top"
+      "board controls";
+  }
+
+  .mobile-joystick {
+    grid-template-columns: repeat(3, 48px);
+    grid-template-rows: repeat(3, 48px);
+    opacity: 0.92;
+  }
+
+  .joy-btn {
+    min-width: 48px;
+    min-height: 48px;
   }
 }
