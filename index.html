@@ -2,182 +2,111 @@
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>影子贪吃蛇</title>
-  <link rel="stylesheet" href="style.css?v=20260602-gesture">
+  <link rel="stylesheet" href="style.css?v=mobile-gesture-hud1">
 </head>
 <body>
-  <main class="game-shell">
-    <header class="top-bar">
-      <div>
-        <p class="eyebrow">Canvas Game</p>
-        <h1>影子贪吃蛇</h1>
-      </div>
-
-      <section class="stats" aria-label="游戏数据">
-        <div>
-          <span>分数</span>
-          <strong id="scoreText">0</strong>
-        </div>
-        <div>
-          <span>最高分</span>
-          <strong id="bestScoreText">0</strong>
-        </div>
-        <div>
-          <span>速度</span>
-          <strong id="speedText">1</strong>
-        </div>
-        <div>
-          <span>当前外观</span>
-          <strong id="skinText">默认</strong>
-        </div>
-        <div>
-          <span>当前效果</span>
-          <strong id="effectText">无</strong>
-        </div>
-        <div>
-          <span>连击</span>
-          <strong id="comboText">Combo x0</strong>
-        </div>
-        <div>
-          <span>回溯</span>
+  <main class="mobile-game">
+    <header class="mobile-hud">
+      <div class="mobile-hud-left">
+        <button id="mobilePauseButton" class="mobile-icon-button" type="button" aria-label="暂停">Ⅱ</button>
+        <div id="mobileRewindCard" class="mobile-rewind-card">
+          <span class="mobile-hud-label">回溯</span>
           <strong id="rewindText">0/0</strong>
         </div>
-      </section>
+      </div>
+
+      <div id="mobileGoalBanner" class="mobile-goal-banner" aria-live="polite">
+        准备挑战排行榜
+      </div>
+
+      <div class="mobile-hud-right">
+        <div class="mobile-player-card">
+          <span id="playerAvatar" class="mobile-player-avatar">🐍</span>
+          <span id="playerProfileName" class="mobile-player-name">玩家</span>
+        </div>
+        <div class="mobile-score-card">
+          <span class="mobile-hud-label">分数</span>
+          <strong id="scoreText">0</strong>
+        </div>
+      </div>
     </header>
 
-    <section class="board-wrap">
-      <canvas id="gameCanvas" width="720" height="720" aria-label="影子贪吃蛇游戏画布"></canvas>
+    <section class="mobile-board">
+      <canvas id="gameCanvas" aria-label="影子贪吃蛇游戏画布"></canvas>
+      <div id="achievementToast" class="achievement-toast" aria-live="polite"></div>
+      <div id="countdownToast" class="countdown-toast" aria-live="polite"></div>
+      <div id="mobileGestureHint" class="mobile-gesture-hint">滑一下转向，画 L 连续拐弯</div>
+      <div id="mobileGestureLayer" class="mobile-gesture-layer" aria-label="手势操作区"></div>
+    </section>
 
-      <div id="overlay" class="overlay">
-        <div class="overlay-panel">
-          <p id="overlayKicker" class="overlay-kicker">准备开始</p>
-          <h2 id="overlayTitle">影子贪吃蛇</h2>
-          <p id="overlayText">吃到食物后，你刚走过的路线会变成影子障碍。别被过去的自己困住。</p>
+    <section id="overlay" class="mobile-overlay is-start-screen">
+      <div class="mobile-modal">
+        <p id="overlayKicker" class="overlay-kicker">准备开始</p>
+        <h1 id="overlayTitle">影子贪吃蛇</h1>
+        <p id="overlayText">吃红宝石，避开过去留下的影子。</p>
+
+        <label class="player-name-field" for="playerNameInput">
+          <span>玩家昵称</span>
+          <input id="playerNameInput" type="text" maxlength="12" autocomplete="nickname" placeholder="输入昵称">
+        </label>
+        <p id="playerNameHint" class="player-name-hint" aria-live="polite"></p>
+
+        <button id="overlayStartButton" class="primary-button" type="button">开始游戏</button>
+        <button id="mobileOverlayLeaderboardButton" class="secondary-button" type="button">查看排行榜</button>
+        <button id="mobileTutorialButton" class="secondary-button" type="button">新手教程</button>
+      </div>
+    </section>
+
+    <section id="mobileTutorialModal" class="mobile-overlay is-hidden">
+      <div class="mobile-modal tutorial-modal">
+        <p id="tutorialKicker" class="overlay-kicker">新手教程</p>
+        <h2 id="tutorialTitle">吃红宝石</h2>
+        <p id="tutorialText"></p>
+        <div class="tutorial-actions">
+          <button id="tutorialSkipButton" class="secondary-button" type="button">跳过</button>
+          <button id="tutorialNextButton" class="primary-button" type="button">下一步</button>
         </div>
       </div>
     </section>
 
-    <section class="play-guide" aria-label="玩法说明">
-      <div class="guide-header">
-        <h2 id="guideTitle">玩法说明</h2>
-        <button id="guideDetailButton" class="guide-toggle-button" type="button">详细机制</button>
-      </div>
-
-      <div id="guideSummary" class="guide-grid">
-        <article class="guide-card">
-          <span class="guide-icon food-icon"></span>
-          <p><strong>红宝石</strong>最外两圈更高分，连吃升音。</p>
-        </article>
-        <article class="guide-card">
-          <span class="guide-icon shadow-icon"></span>
-          <p><strong>影子</strong>描边是预警，实体后会碰撞。</p>
-        </article>
-        <article class="guide-card">
-          <span class="guide-icon clear-icon"></span>
-          <p><strong>清影/凝核</strong>清影子或缩短蛇身。</p>
-        </article>
-        <article class="guide-card">
-          <span class="guide-icon haste-icon"></span>
-          <p><strong>超频</strong>加速，前段时间可穿影。</p>
-        </article>
-        <article class="guide-card">
-          <span class="guide-icon prism-icon"></span>
-          <p><strong>棱彩</strong>短暂觉醒，红宝石翻倍。</p>
-        </article>
-        <article class="guide-card">
-          <span class="guide-icon magnet-icon"></span>
-          <p><strong>磁铁</strong>小范围吸收附近红宝石。</p>
-        </article>
-        <article class="guide-card">
-          <span class="guide-icon evolve-icon"></span>
-          <p><strong>进化</strong>50~1000 分解锁高级外观。</p>
-        </article>
-        <article class="guide-card">
-          <span class="guide-icon rewind-icon"></span>
-          <p><strong>回溯</strong>220 分解锁，700 / 1000 分升储备。</p>
-        </article>
-        <article class="guide-card guide-card-wide">
-          <span class="guide-icon control-icon">W</span>
-          <p><strong>操作</strong>电脑用 WASD / 方向键，手机可滑动或点方向键。</p>
-        </article>
-      </div>
-
-      <div id="guideDetailPanel" class="guide-detail-panel is-hidden">
-        <div class="guide-detail-hero">
-          <span class="guide-detail-badge">MECHANICS</span>
-          <p>影子、道具、进化、音效与回溯共同构成后期路线规划。</p>
-        </div>
-
-        <div class="guide-detail-content">
-          <article class="guide-detail-item guide-detail-shadow">
-            <span class="guide-detail-index">01</span>
-            <div>
-              <strong>影子路线</strong>
-              <p>吃红宝石后，近期路线先预警再凝成实体障碍。</p>
-            </div>
-          </article>
-          <article class="guide-detail-item guide-detail-score">
-            <span class="guide-detail-index">02</span>
-            <div>
-              <strong>分数边缘</strong>
-              <p>红宝石基础 +10；最外圈 +10，第二圈 +5；棱彩翻倍。</p>
-            </div>
-          </article>
-          <article class="guide-detail-item guide-detail-power">
-            <span class="guide-detail-index">03</span>
-            <div>
-              <strong>道具控场</strong>
-              <p>清影、超频、棱彩、磁铁、凝核分别处理影子、速度、分数和空间。</p>
-            </div>
-          </article>
-          <article class="guide-detail-item guide-detail-evolve">
-            <span class="guide-detail-index">04</span>
-            <div>
-              <strong>外观进化</strong>
-              <p>50~1000 分逐步升级外观、速度，并在过长时压缩蛇身。</p>
-            </div>
-          </article>
-          <article class="guide-detail-item guide-detail-rewind">
-            <span class="guide-detail-index">05</span>
-            <div>
-              <strong>影子回溯</strong>
-              <p>220 分解锁死亡回退；700 / 1000 分提升储备上限。</p>
-            </div>
-          </article>
-          <article class="guide-detail-item guide-detail-audio">
-            <span class="guide-detail-index">06</span>
-            <div>
-              <strong>音效提示</strong>
-              <p>道具结束前三下倒计时；进化/回溯护盾结束仅轻响一次。</p>
-            </div>
-          </article>
-        </div>
-
-        <button id="guideBackButton" class="guide-toggle-button guide-back-button" type="button">返回</button>
+    <section id="mobileLeaderboardModal" class="mobile-overlay is-hidden">
+      <div class="mobile-modal leaderboard-modal">
+        <h2>排行榜 Top 10</h2>
+        <ol id="leaderboardList" class="leaderboard-list"></ol>
+        <button id="mobileLeaderboardCloseButton" class="primary-button" type="button">关闭</button>
       </div>
     </section>
 
-    <footer class="control-bar">
-      <div class="button-row">
-        <button id="startButton" class="primary-button" type="button">开始游戏</button>
+    <section id="mobilePauseModal" class="mobile-overlay is-hidden">
+      <div class="mobile-modal pause-modal">
+        <h2>游戏暂停</h2>
+        <button id="mobileResumeButton" class="primary-button" type="button">继续</button>
         <button id="restartButton" class="secondary-button" type="button">重新开始</button>
+        <button id="soundButton" class="secondary-button" type="button">声音：开</button>
+        <button id="mobileShowLeaderboardButton" class="secondary-button" type="button">查看排行榜</button>
+        <button id="mobileShowTutorialButton" class="secondary-button" type="button">教程</button>
       </div>
-      <button id="soundButton" class="secondary-button sound-button" type="button">音效：开</button>
+    </section>
 
-      <p id="statusText">等待开始</p>
-    </footer>
+    <div id="rotateHint" class="rotate-hint">请竖屏体验</div>
 
-    <p class="design-note">
-      玩家过去的路线会转化为影子障碍，后期通过外观进化、道具、缩身和回溯管理风险。
-    </p>
+    <p id="statusText" class="mobile-status">等待开始</p>
+
+    <span id="bestScoreText" hidden>0</span>
+    <span id="speedText" hidden>1</span>
+    <span id="skinText" hidden>默认</span>
+    <span id="effectText" hidden>无</span>
+    <span id="comboText" hidden>Combo x0</span>
+    <button id="startButton" class="compat-hidden" type="button">开始游戏</button>
+    <input id="bgmVolumeSlider" class="compat-hidden" type="range" min="0" max="100" value="29" aria-hidden="true">
+    <input id="sfxVolumeSlider" class="compat-hidden" type="range" min="0" max="100" value="77" aria-hidden="true">
+    <span id="bgmVolumeMascot" hidden></span>
+    <span id="sfxVolumeMascot" hidden></span>
   </main>
 
-  <div id="gestureJoystick" class="gesture-joystick" aria-hidden="true">
-    <div class="gesture-joystick-base"></div>
-    <div class="gesture-joystick-knob"></div>
-  </div>
-
-  <script src="script.js?v=20260602-gesture"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="script.js?v=mobile-gesture-hud1"></script>
 </body>
 </html>

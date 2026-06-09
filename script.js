@@ -1,6 +1,5 @@
 const canvas = document.querySelector("#gameCanvas");
 const ctx = canvas.getContext("2d");
-const boardWrap = document.querySelector(".board-wrap");
 
 const scoreText = document.querySelector("#scoreText");
 const bestScoreText = document.querySelector("#bestScoreText");
@@ -10,34 +9,74 @@ const effectText = document.querySelector("#effectText");
 const comboText = document.querySelector("#comboText");
 const rewindText = document.querySelector("#rewindText");
 const statusText = document.querySelector("#statusText");
+const playerNameInput = document.querySelector("#playerNameInput");
+const playerNameHint = document.querySelector("#playerNameHint");
+const leaderboardList = document.querySelector("#leaderboardList");
+const achievementToast = document.querySelector("#achievementToast");
 const overlay = document.querySelector("#overlay");
 const overlayKicker = document.querySelector("#overlayKicker");
 const overlayTitle = document.querySelector("#overlayTitle");
 const overlayText = document.querySelector("#overlayText");
 const startButton = document.querySelector("#startButton");
+const overlayStartButton = document.querySelector("#overlayStartButton");
 const restartButton = document.querySelector("#restartButton");
 const soundButton = document.querySelector("#soundButton");
+const bgmVolumeSlider = document.querySelector("#bgmVolumeSlider");
+const sfxVolumeSlider = document.querySelector("#sfxVolumeSlider");
+const bgmVolumeMascot = document.querySelector("#bgmVolumeMascot");
+const sfxVolumeMascot = document.querySelector("#sfxVolumeMascot");
+const playerAvatar = document.querySelector("#playerAvatar");
+const playerProfileName = document.querySelector("#playerProfileName");
+const mobileBoard = document.querySelector(".mobile-board");
+const mobilePauseButton = document.querySelector("#mobilePauseButton");
+const mobilePauseModal = document.querySelector("#mobilePauseModal");
+const mobileResumeButton = document.querySelector("#mobileResumeButton");
+const mobileTutorialButton = document.querySelector("#mobileTutorialButton");
+const mobileShowTutorialButton = document.querySelector("#mobileShowTutorialButton");
+const mobileTutorialModal = document.querySelector("#mobileTutorialModal");
+const tutorialTitle = document.querySelector("#tutorialTitle");
+const tutorialText = document.querySelector("#tutorialText");
+const tutorialSkipButton = document.querySelector("#tutorialSkipButton");
+const tutorialNextButton = document.querySelector("#tutorialNextButton");
+const mobileGoalBanner = document.querySelector("#mobileGoalBanner");
+const mobileRewindCard = document.querySelector("#mobileRewindCard");
+const mobileGestureLayer = document.querySelector("#mobileGestureLayer");
+const mobileGestureHint = document.querySelector("#mobileGestureHint");
+const mobileLeaderboardModal = document.querySelector("#mobileLeaderboardModal");
+const mobileLeaderboardCloseButton = document.querySelector("#mobileLeaderboardCloseButton");
+const mobileShowLeaderboardButton = document.querySelector("#mobileShowLeaderboardButton");
+const mobileOverlayLeaderboardButton = document.querySelector("#mobileOverlayLeaderboardButton");
 const guideTitle = document.querySelector("#guideTitle");
 const guideDetailButton = document.querySelector("#guideDetailButton");
 const guideSummary = document.querySelector("#guideSummary");
-const guideDetailPanel = document.querySelector("#guideDetailPanel");
-const guideBackButton = document.querySelector("#guideBackButton");
-const mobileControlButtons = document.querySelectorAll("[data-direction], [data-dir]");
-const gestureJoystick = document.querySelector("#gestureJoystick");
-const gestureJoystickKnob = document.querySelector(".gesture-joystick-knob");
+const mechanicsPanel = document.querySelector("#mechanicsPanel");
+const mechanicsBackButton = document.querySelector("#mechanicsBackButton");
+const countdownToast = document.querySelector("#countdownToast");
 
-const gridSize = 24;
-const cellSize = canvas.width / gridSize;
+let gridCols = 24;
+let gridRows = 36;
+let cellSize = 0;
+let boardPixelWidth = 0;
+let boardPixelHeight = 0;
 const bestScoreKey = "shadow-snake-best-score";
-const mobileControlQuery = window.matchMedia ? window.matchMedia("(max-width: 900px), (pointer: coarse)") : null;
+const playerNameKey = "shadow-snake-player-name";
+const playerAvatarKey = "shadow-snake-player-avatar";
+const mobileTutorialSeenKey = "shadow-snake-mobile-tutorial-seen";
+const bgmVolumeKey = "shadow-snake-bgm-volume-v3";
+const sfxVolumeKey = "shadow-snake-sfx-volume-v3";
+const bgmSliderMaxVolume = 0.28;
+const sfxSliderCurve = 0.2;
+const avatarPool = ["🐍", "🌸", "⭐", "💎", "🍬", "🦊", "🐱", "🐰", "🧸", "🎮", "🌙", "🍓"];
+const SUPABASE_URL = "https://ziwcvppreuwefooetbhv.supabase.co";
+const SUPABASE_ANON_KEY = "sb_publishable_6i_z6wioqkwI72mV3Pxpfg_p8yVDrc_";
+const supabaseClient = createSupabaseClient();
 
 const trailLife = 2800;
 const shadowFadeTime = 2800;
 const formingShadowDuration = 700;
 const powerUpLife = 8000;
-const hasteDuration = 6000;
+const hasteDuration = 5000;
 const prismDuration = 6000;
-const invincibleDuration = 4000;
 const magnetDuration = 6000;
 const evolveShieldDuration = 1800;
 const rewindShieldDuration = 1500;
@@ -47,6 +86,7 @@ const speedRatio = 0.88;
 const magnetRange = 3;
 const rewindWindow = 4000;
 const rewindTargetAge = 3000;
+const countdownCueVolumeBoost = 2.2;
 
 const progressTiers = [
   {
@@ -267,39 +307,217 @@ let statusOverride = {
 let soundEnabled = true;
 let audioContext = null;
 let hasStartedOnce = false;
-let mobileWaitingForInput = false;
-let gestureStartX = 0;
-let gestureStartY = 0;
-let gestureActive = false;
-let activePointerId = null;
-const joystickRadius = 42;
-const directionThreshold = 18;
-let touchStartX = 0;
-let touchStartY = 0;
-let isTouchTracking = false;
+let currentPlayerName = "";
+let currentPlayerAvatar = "";
+let hasSubmittedCurrentScore = false;
+let currentSessionId = "";
+let gameStartedAt = 0;
+let leaderboardCache = [];
+let achievementToastTimer = null;
+let currentBgm = null;
+let currentBgmSrc = "";
+let bgmVolume = 0.08;
+let sfxVolume = 0.95;
+let bgmFadeTimer = null;
+let outgoingBgm = null;
+let outgoingBgmFadeTimer = null;
+let bgmSwitchToken = 0;
+let countdownTutorialShownCount = 0;
+const maxCountdownTutorialShown = 2;
+let countdownToastTimer = null;
+let touchStartPoint = null;
+let gesturePoints = [];
+let turnQueue = [];
+const gestureMinSegmentDistance = 24;
+const gestureDirectionChangeThreshold = 18;
+const maxTurnQueueLength = 2;
+let hasUsedMobileGesture = false;
+let tutorialStepIndex = 0;
+let mobileNotifiedNearBest = false;
+let mobileNotifiedNewBest = false;
+let mobileNotifiedTop10 = false;
+let mobileNotifiedTop3 = false;
+let endGameSummary = null;
+let reopenPauseAfterModal = false;
 
-startButton.addEventListener("click", handleStartButtonClick);
-restartButton.addEventListener("click", startGame);
-soundButton.addEventListener("click", toggleSound);
+const mobileTutorialSteps = [
+  {
+    title: "吃红宝石",
+    text: "红宝石是主要得分目标，越靠近边缘奖励越高。"
+  },
+  {
+    title: "别被过去困住",
+    text: "吃到红宝石后，刚走过的路线会变成影子障碍。"
+  },
+  {
+    title: "善用道具",
+    text: "清影、超频、棱彩、磁铁和凝核会帮你打开局面。"
+  },
+  {
+    title: "回溯储备",
+    text: "达到分数节点后获得回溯，死亡时自动回到数秒前。"
+  },
+  {
+    title: "画出转向",
+    text: "短滑改变方向；画一个 L，可以连续拐两次。"
+  }
+];
+
+if (startButton) {
+  startButton.addEventListener("click", handleStartButtonClick);
+}
+
+if (overlayStartButton) {
+  overlayStartButton.addEventListener("click", handleStartButtonClick);
+}
+
+if (restartButton) {
+  restartButton.addEventListener("click", startGame);
+}
+
+if (soundButton) {
+  soundButton.addEventListener("click", toggleSound);
+}
+
+if (mobilePauseButton) {
+  mobilePauseButton.addEventListener("click", function () {
+    if (gameState === "playing") {
+      pauseGame();
+    }
+  });
+}
+
+if (mobileResumeButton) {
+  mobileResumeButton.addEventListener("click", resumeGame);
+}
+
+if (mobileTutorialButton) {
+  mobileTutorialButton.addEventListener("click", function () {
+    openTutorial(false);
+  });
+}
+
+if (mobileShowTutorialButton) {
+  mobileShowTutorialButton.addEventListener("click", function () {
+    openTutorial(false);
+  });
+}
+
+if (tutorialSkipButton) {
+  tutorialSkipButton.addEventListener("click", closeTutorial);
+}
+
+if (tutorialNextButton) {
+  tutorialNextButton.addEventListener("click", advanceTutorial);
+}
+
+if (mobileShowLeaderboardButton) {
+  mobileShowLeaderboardButton.addEventListener("click", openLeaderboardModal);
+}
+
+if (mobileOverlayLeaderboardButton) {
+  mobileOverlayLeaderboardButton.addEventListener("click", openLeaderboardModal);
+}
+
+if (mobileLeaderboardCloseButton) {
+  mobileLeaderboardCloseButton.addEventListener("click", closeLeaderboardModal);
+}
+
+if (mobileGestureLayer) {
+  mobileGestureLayer.addEventListener("touchstart", handleGestureStart, { passive: false });
+  mobileGestureLayer.addEventListener("touchmove", handleGestureMove, { passive: false });
+  mobileGestureLayer.addEventListener("touchend", handleGestureEnd, { passive: false });
+  mobileGestureLayer.addEventListener("touchcancel", handleGestureCancel, { passive: false });
+}
+
 document.addEventListener("keydown", handleKeyDown);
-setupMobileControls();
+
+if (playerNameInput) {
+  playerNameInput.addEventListener("input", handlePlayerNameInput);
+}
+
+if (bgmVolumeSlider) {
+  bgmVolumeSlider.addEventListener("input", function () {
+    bgmVolume = bgmSliderValueToVolume(bgmVolumeSlider.value);
+    saveVolumeSettings();
+    updateVolumeMascots();
+
+    if (currentBgm) {
+      currentBgm.volume = bgmVolume;
+    }
+  });
+}
+
+if (sfxVolumeSlider) {
+  sfxVolumeSlider.addEventListener("input", function () {
+    sfxVolume = sfxSliderValueToVolume(sfxVolumeSlider.value);
+    saveVolumeSettings();
+    updateVolumeMascots();
+    playSound("ui");
+  });
+}
+
+window.addEventListener("resize", function () {
+  handleMobileResize();
+  updateVolumeMascots();
+});
+window.addEventListener("orientationchange", handleMobileResize);
 
 if (guideDetailButton) {
-  guideDetailButton.addEventListener("click", showGuideDetail);
+  guideDetailButton.addEventListener("click", showMechanicsPanel);
 }
 
-if (guideBackButton) {
-  guideBackButton.addEventListener("click", showGuideSummary);
+if (mechanicsBackButton) {
+  mechanicsBackButton.addEventListener("click", hideMechanicsPanel);
 }
 
+loadPlayerName();
+loadPlayerProfile();
+updatePlayerProfile();
+loadVolumeSettings();
+resizeMobileBoard();
+loadLeaderboard();
 updateSoundButton();
 setupBoard();
 showStartScreen();
+maybeShowFirstTutorial();
 requestAnimationFrame(drawFrame);
 
+function resizeMobileBoard() {
+  const board = mobileBoard || canvas.parentElement;
+  const rect = board.getBoundingClientRect();
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+
+  boardPixelWidth = Math.max(1, Math.floor(rect.width || window.innerWidth || 360));
+  boardPixelHeight = Math.max(1, Math.floor(rect.height || window.innerHeight || 540));
+
+  gridCols = 24;
+  cellSize = boardPixelWidth / gridCols;
+  gridRows = Math.max(28, Math.floor(boardPixelHeight / cellSize));
+
+  canvas.width = Math.floor(boardPixelWidth * dpr);
+  canvas.height = Math.floor(boardPixelHeight * dpr);
+  canvas.style.width = boardPixelWidth + "px";
+  canvas.style.height = boardPixelHeight + "px";
+
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+}
+
+function handleMobileResize() {
+  resizeMobileBoard();
+  clearTimeout(moveTimer);
+
+  if (gameState === "playing") {
+    setupBoard();
+    scheduleNextMove();
+  } else {
+    setupBoard();
+  }
+}
+
 function setupBoard() {
-  const startX = Math.floor(gridSize / 2);
-  const startY = Math.floor(gridSize / 2);
+  const startX = Math.floor(gridCols / 2);
+  const startY = Math.floor(gridRows / 2);
 
   snake = [
     { x: startX, y: startY },
@@ -343,6 +561,8 @@ function setupBoard() {
     text: "",
     until: 0
   };
+  turnQueue = [];
+  resetMobileGoalNotifications();
   currentDirection = { x: 1, y: 0 };
   nextDirection = { x: 1, y: 0 };
   ensureFoodCount();
@@ -350,28 +570,38 @@ function setupBoard() {
 }
 
 function startGame() {
+  const name = getValidatedPlayerName();
+
+  if (!name) {
+    return;
+  }
+
+  assignRandomAvatarIfNeeded();
+  updatePlayerProfile();
+  currentSessionId = createGameSessionId();
+  gameStartedAt = Date.now();
+  hasSubmittedCurrentScore = false;
+  countdownTutorialShownCount = 0;
   hasStartedOnce = true;
   ensureAudioReady();
   playSound("ui");
-  resetGestureJoystick();
   clearTimeout(moveTimer);
   pausedAt = 0;
   setupBoard();
   gameState = "playing";
-  startButton.textContent = "重新开局";
-  mobileWaitingForInput = isMobileControlMode();
+  overlay.classList.add("is-hidden");
+  overlay.classList.remove("is-start-screen");
+  closePauseModal();
+  closeLeaderboardModal();
+  closeTutorial();
+  reopenPauseAfterModal = false;
 
-  if (mobileWaitingForInput) {
-    overlay.classList.remove("is-hidden");
-    overlayKicker.textContent = "准备好了";
-    overlayTitle.textContent = "选择方向开始";
-    overlayText.textContent = "按住屏幕空白处并拖动，或在棋盘上滑动。第一次有效方向输入后蛇才会移动。";
-    statusText.textContent = "选择方向开始";
-    return;
+  if (startButton) {
+    startButton.textContent = "重新开局";
   }
 
-  overlay.classList.add("is-hidden");
   statusText.textContent = "影子正在记录你的路线";
+  playBgmForCurrentTier();
   scheduleNextMove();
 }
 
@@ -386,18 +616,759 @@ function handleStartButtonClick() {
 
 function showStartScreen() {
   gameState = "ready";
-  mobileWaitingForInput = false;
-  resetGestureJoystick();
   overlay.classList.remove("is-hidden");
+  overlay.classList.add("is-start-screen");
   overlayKicker.textContent = "准备开始";
   overlayTitle.textContent = "影子贪吃蛇";
   overlayText.textContent = "吃到食物后，你刚走过的路线会变成影子障碍。别被过去的自己困住。";
-  startButton.textContent = "开始游戏";
+  endGameSummary = null;
+
+  if (overlayStartButton) {
+    overlayStartButton.textContent = "开始游戏";
+  }
+
+  if (startButton) {
+    startButton.textContent = "开始游戏";
+  }
   statusText.textContent = "等待开始";
+  updateMobileGoalProgress();
+}
+
+function openPauseModal() {
+  if (mobilePauseModal) {
+    mobilePauseModal.classList.remove("is-hidden");
+  }
+}
+
+function closePauseModal() {
+  if (mobilePauseModal) {
+    mobilePauseModal.classList.add("is-hidden");
+  }
+}
+
+function openLeaderboardModal() {
+  if (gameState === "paused") {
+    reopenPauseAfterModal = true;
+    closePauseModal();
+  }
+
+  if (mobileLeaderboardModal) {
+    mobileLeaderboardModal.classList.remove("is-hidden");
+  }
+
+  loadLeaderboard();
+  playSound("ui");
+}
+
+function closeLeaderboardModal() {
+  if (mobileLeaderboardModal) {
+    mobileLeaderboardModal.classList.add("is-hidden");
+  }
+
+  if (gameState === "paused" && reopenPauseAfterModal) {
+    reopenPauseAfterModal = false;
+    openPauseModal();
+  }
+}
+
+function openTutorial(isFirstRun) {
+  if (gameState === "paused") {
+    reopenPauseAfterModal = true;
+    closePauseModal();
+  }
+
+  tutorialStepIndex = 0;
+  renderTutorialStep();
+
+  if (mobileTutorialModal) {
+    mobileTutorialModal.classList.remove("is-hidden");
+  }
+
+  if (!isFirstRun) {
+    playSound("ui");
+  }
+}
+
+function closeTutorial() {
+  if (mobileTutorialModal) {
+    mobileTutorialModal.classList.add("is-hidden");
+  }
+
+  try {
+    localStorage.setItem(mobileTutorialSeenKey, "1");
+  } catch (error) {
+    console.warn("教程状态保存失败：", error);
+  }
+
+  if (gameState === "paused" && reopenPauseAfterModal) {
+    reopenPauseAfterModal = false;
+    openPauseModal();
+  }
+}
+
+function maybeShowFirstTutorial() {
+  let hasSeenTutorial = false;
+
+  try {
+    hasSeenTutorial = localStorage.getItem(mobileTutorialSeenKey) === "1";
+  } catch (error) {
+    hasSeenTutorial = false;
+  }
+
+  if (!hasSeenTutorial) {
+    window.setTimeout(function () {
+      openTutorial(true);
+    }, 260);
+  }
+}
+
+function advanceTutorial() {
+  if (tutorialStepIndex >= mobileTutorialSteps.length - 1) {
+    closeTutorial();
+    playSound("ui");
+    return;
+  }
+
+  tutorialStepIndex = tutorialStepIndex + 1;
+  renderTutorialStep();
+  playSound("ui");
+}
+
+function renderTutorialStep() {
+  const step = mobileTutorialSteps[tutorialStepIndex] || mobileTutorialSteps[0];
+
+  if (tutorialTitle) {
+    tutorialTitle.textContent = step.title;
+  }
+
+  if (tutorialText) {
+    tutorialText.textContent = step.text;
+  }
+
+  if (tutorialNextButton) {
+    tutorialNextButton.textContent = tutorialStepIndex >= mobileTutorialSteps.length - 1 ? "完成" : "下一步";
+  }
+}
+
+function createSupabaseClient() {
+  const hasPlaceholderConfig =
+    !SUPABASE_URL ||
+    !SUPABASE_ANON_KEY ||
+    SUPABASE_URL.indexOf("这里填") !== -1 ||
+    SUPABASE_ANON_KEY.indexOf("这里填") !== -1;
+
+  if (hasPlaceholderConfig) {
+    return null;
+  }
+
+  if (!window.supabase || typeof window.supabase.createClient !== "function") {
+    console.warn("Supabase SDK 未加载，排行榜暂不可用。");
+    return null;
+  }
+
+  try {
+    return window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  } catch (error) {
+    console.error("Supabase 初始化失败：", error);
+    return null;
+  }
+}
+
+function createGameSessionId() {
+  if (window.crypto && crypto.randomUUID) {
+    return crypto.randomUUID();
+  }
+
+  return String(Date.now()) + "-" + Math.random().toString(16).slice(2);
+}
+
+function clampVolume(value) {
+  const numericValue = Number(value);
+
+  if (!Number.isFinite(numericValue)) {
+    return 0;
+  }
+
+  return Math.max(0, Math.min(1, numericValue));
+}
+
+function bgmSliderValueToVolume(sliderValue) {
+  return clampVolume((Number(sliderValue) / 100) * bgmSliderMaxVolume);
+}
+
+function bgmVolumeToSliderValue(volume) {
+  return String(Math.round((clampVolume(volume) / bgmSliderMaxVolume) * 100));
+}
+
+function sfxSliderValueToVolume(sliderValue) {
+  const ratio = clampVolume(Number(sliderValue) / 100);
+  return clampVolume(Math.pow(ratio, sfxSliderCurve));
+}
+
+function sfxVolumeToSliderValue(volume) {
+  const ratio = Math.pow(clampVolume(volume), 1 / sfxSliderCurve);
+  return String(Math.round(ratio * 100));
+}
+
+function loadVolumeSettings() {
+  try {
+    const savedBgm = localStorage.getItem(bgmVolumeKey);
+    const savedSfx = localStorage.getItem(sfxVolumeKey);
+
+    if (savedBgm !== null) {
+      bgmVolume = clampVolume(savedBgm);
+    }
+
+    if (savedSfx !== null) {
+      sfxVolume = clampVolume(savedSfx);
+    }
+  } catch (error) {
+    console.warn("音量设置读取失败：", error);
+  }
+
+  if (bgmVolumeSlider) {
+    bgmVolumeSlider.value = bgmVolumeToSliderValue(bgmVolume);
+  }
+
+  if (sfxVolumeSlider) {
+    sfxVolumeSlider.value = sfxVolumeToSliderValue(sfxVolume);
+  }
+
+  updateVolumeMascots();
+}
+
+function saveVolumeSettings() {
+  try {
+    localStorage.setItem(bgmVolumeKey, String(bgmVolume));
+    localStorage.setItem(sfxVolumeKey, String(sfxVolume));
+  } catch (error) {
+    console.warn("音量设置保存失败：", error);
+  }
+}
+
+function updateMascotPosition(slider, mascot) {
+  if (!slider || !mascot) {
+    return;
+  }
+
+  const min = Number(slider.min) || 0;
+  const max = Number(slider.max) || 100;
+  const value = Number(slider.value) || 0;
+  const ratio = max === min ? 0 : (value - min) / (max - min);
+  const wrap = slider.closest(".cute-range-wrap");
+
+  if (!wrap) {
+    mascot.style.left = ratio * 100 + "%";
+    return;
+  }
+
+  const sidePadding = 16;
+  const usableWidth = Math.max(0, wrap.clientWidth - sidePadding * 2);
+  const left = sidePadding + usableWidth * ratio;
+
+  mascot.style.left = left + "px";
+}
+
+function updateVolumeMascots() {
+  updateMascotPosition(bgmVolumeSlider, bgmVolumeMascot);
+  updateMascotPosition(sfxVolumeSlider, sfxVolumeMascot);
+}
+
+function loadPlayerName() {
+  let savedName = "";
+
+  try {
+    savedName = localStorage.getItem(playerNameKey) || "";
+  } catch (error) {
+    savedName = "";
+  }
+
+  currentPlayerName = savedName.trim().slice(0, 12);
+
+  if (playerNameInput) {
+    playerNameInput.value = currentPlayerName;
+  }
+}
+
+function loadPlayerProfile() {
+  try {
+    currentPlayerAvatar = localStorage.getItem(playerAvatarKey) || "";
+  } catch (error) {
+    currentPlayerAvatar = "";
+  }
+
+  if (!avatarPool.includes(currentPlayerAvatar)) {
+    currentPlayerAvatar = "";
+  }
+}
+
+function assignRandomAvatarIfNeeded() {
+  if (currentPlayerAvatar) {
+    return;
+  }
+
+  currentPlayerAvatar = avatarPool[Math.floor(Math.random() * avatarPool.length)];
+
+  try {
+    localStorage.setItem(playerAvatarKey, currentPlayerAvatar);
+  } catch (error) {
+    console.warn("头像保存失败：", error);
+  }
+}
+
+function updatePlayerProfile() {
+  if (playerAvatar) {
+    playerAvatar.textContent = currentPlayerAvatar || "🐍";
+  }
+
+  if (playerProfileName) {
+    playerProfileName.textContent = currentPlayerName || "玩家";
+  }
+}
+
+function handlePlayerNameInput() {
+  if (!playerNameInput) {
+    return;
+  }
+
+  if (playerNameInput.value.length > 12) {
+    playerNameInput.value = playerNameInput.value.slice(0, 12);
+  }
+
+  if (playerNameInput.value.trim()) {
+    setPlayerNameHint("");
+  }
+}
+
+function getValidatedPlayerName() {
+  const name = playerNameInput ? playerNameInput.value.trim().slice(0, 12) : "";
+
+  if (playerNameInput && playerNameInput.value !== name) {
+    playerNameInput.value = name;
+  }
+
+  if (!name) {
+    setPlayerNameHint("请输入昵称");
+
+    if (statusText) {
+      statusText.textContent = "请输入昵称后开始游戏";
+    }
+
+    if (playerNameInput) {
+      playerNameInput.focus();
+    }
+
+    return "";
+  }
+
+  setPlayerNameHint("");
+
+  try {
+    localStorage.setItem(playerNameKey, name);
+  } catch (error) {
+    console.warn("昵称保存失败：", error);
+  }
+
+  currentPlayerName = name;
+  updatePlayerProfile();
+  return name;
+}
+
+function setPlayerNameHint(message) {
+  if (playerNameHint) {
+    playerNameHint.textContent = message;
+  }
+}
+
+function isTextInputTarget(target) {
+  if (!target) {
+    return false;
+  }
+
+  const tagName = target.tagName;
+
+  return target.isContentEditable || tagName === "INPUT" || tagName === "TEXTAREA" || tagName === "SELECT";
+}
+
+async function submitScoreIfNeeded(finalScore, finalPlayerName) {
+  if (hasSubmittedCurrentScore) {
+    return;
+  }
+
+  const scoreToSubmit = Number(finalScore) || 0;
+  const playerNameToSubmit = finalPlayerName ? String(finalPlayerName).trim().slice(0, 12) : "";
+  const durationMs = Date.now() - gameStartedAt;
+
+  if (!playerNameToSubmit || scoreToSubmit <= 0) {
+    return;
+  }
+
+  if (!currentSessionId || durationMs <= 0) {
+    console.warn("缺少 sessionId 或游戏时长异常，成绩未提交");
+    return;
+  }
+
+  if (!supabaseClient) {
+    console.warn("Supabase 未配置，成绩未提交");
+    return;
+  }
+
+  if (statusText) {
+    statusText.textContent = "成绩验证中...";
+  }
+
+  hasSubmittedCurrentScore = true;
+
+  try {
+    const { data, error } = await supabaseClient.functions.invoke("submit-run", {
+      body: {
+        playerName: playerNameToSubmit,
+        score: scoreToSubmit,
+        sessionId: currentSessionId,
+        durationMs: durationMs
+      }
+    });
+
+    if (error || !data || data.ok === false) {
+      console.warn("成绩提交返回异常，开始二次确认：", error || data);
+
+      const isActuallyUploaded = await verifySubmittedScoreInLeaderboard(playerNameToSubmit, scoreToSubmit);
+
+      if (isActuallyUploaded) {
+        if (statusText) {
+          statusText.textContent = "成绩已上传";
+        }
+
+        await loadLeaderboard();
+        return;
+      }
+
+      console.error("成绩提交失败：", error || data);
+      hasSubmittedCurrentScore = false;
+
+      if (statusText) {
+        statusText.textContent = "成绩提交失败";
+      }
+
+      return;
+    }
+
+    if (statusText) {
+      statusText.textContent = "成绩已验证并上传";
+    }
+
+    await loadLeaderboard();
+  } catch (requestError) {
+    console.warn("成绩提交请求异常，开始二次确认：", requestError);
+
+    const isActuallyUploaded = await verifySubmittedScoreInLeaderboard(playerNameToSubmit, scoreToSubmit);
+
+    if (isActuallyUploaded) {
+      if (statusText) {
+        statusText.textContent = "成绩已上传";
+      }
+
+      await loadLeaderboard();
+      return;
+    }
+
+    console.error("成绩提交请求失败：", requestError);
+    hasSubmittedCurrentScore = false;
+
+    if (statusText) {
+      statusText.textContent = "成绩提交失败";
+    }
+  }
+}
+
+async function verifySubmittedScoreInLeaderboard(playerName, scoreValue) {
+  if (!supabaseClient || !playerName || !scoreValue) {
+    return false;
+  }
+
+  try {
+    const { data, error } = await supabaseClient
+      .from("leaderboard")
+      .select("player_name, score, created_at")
+      .eq("player_name", playerName)
+      .eq("score", scoreValue)
+      .order("created_at", { ascending: false })
+      .limit(1);
+
+    if (error) {
+      console.warn("成绩二次确认失败：", error);
+      return false;
+    }
+
+    return Array.isArray(data) && data.length > 0;
+  } catch (error) {
+    console.warn("成绩二次确认请求失败：", error);
+    return false;
+  }
+}
+
+async function loadLeaderboard() {
+  if (!leaderboardList) {
+    return;
+  }
+
+  if (!supabaseClient) {
+    renderLeaderboardMessage("排行榜待连接");
+    updateMobileGoalProgress();
+    return;
+  }
+
+  let data = [];
+  let error = null;
+
+  try {
+    const result = await supabaseClient
+      .from("leaderboard")
+      .select("player_name, score, created_at")
+      .order("score", { ascending: false })
+      .limit(10);
+
+    data = result.data;
+    error = result.error;
+  } catch (requestError) {
+    error = requestError;
+  }
+
+  if (error) {
+    console.error("读取排行榜失败：", error);
+    renderLeaderboardMessage("排行榜暂不可用");
+    updateMobileGoalProgress();
+    return;
+  }
+
+  leaderboardCache = data || [];
+  renderLeaderboard(data || []);
+  updateMobileGoalProgress();
+  updateEndGameLeaderboardSummary();
+}
+
+function getTopThreeThreshold() {
+  if (!leaderboardCache || leaderboardCache.length < 3) {
+    return 0;
+  }
+
+  return Number(leaderboardCache[2].score) || 0;
+}
+
+function getTopTenThreshold() {
+  if (!leaderboardCache || leaderboardCache.length < 10) {
+    return 0;
+  }
+
+  return Number(leaderboardCache[9].score) || 0;
+}
+
+function isTopThreeScore(finalScore) {
+  if (!leaderboardCache || leaderboardCache.length < 3) {
+    return finalScore > 0;
+  }
+
+  return finalScore > getTopThreeThreshold();
+}
+
+function isTopTenScore(finalScore) {
+  if (!leaderboardCache || leaderboardCache.length < 10) {
+    return finalScore > 0;
+  }
+
+  return finalScore > getTopTenThreshold();
+}
+
+function getLeaderboardRank(scoreValue) {
+  if (!scoreValue || !leaderboardCache || leaderboardCache.length === 0) {
+    return null;
+  }
+
+  for (let i = 0; i < leaderboardCache.length; i = i + 1) {
+    if (scoreValue >= Number(leaderboardCache[i].score || 0)) {
+      return i + 1;
+    }
+  }
+
+  if (leaderboardCache.length < 10) {
+    return leaderboardCache.length + 1;
+  }
+
+  return null;
+}
+
+function resetMobileGoalNotifications() {
+  mobileNotifiedNearBest = false;
+  mobileNotifiedNewBest = false;
+  mobileNotifiedTop10 = false;
+  mobileNotifiedTop3 = false;
+}
+
+function updateMobileGoalProgress() {
+  if (!mobileGoalBanner) {
+    return;
+  }
+
+  const top10Threshold = getTopTenThreshold();
+  const top3Threshold = getTopThreeThreshold();
+  const previousBestScore = bestScore;
+  let bannerText = "准备挑战排行榜";
+
+  if (score > 0 && previousBestScore > 0 && score >= previousBestScore * 0.85 && score <= previousBestScore) {
+    bannerText = "快追上个人纪录啦";
+  } else if (score > top3Threshold && (top3Threshold > 0 || leaderboardCache.length < 3)) {
+    bannerText = "冲击前三中";
+  } else if (score > top10Threshold && (top10Threshold > 0 || leaderboardCache.length < 10)) {
+    bannerText = "已进入 Top10";
+  } else if (top10Threshold > 0) {
+    bannerText = "距 Top10 还差 " + Math.max(0, top10Threshold - score + 1);
+  }
+
+  mobileGoalBanner.textContent = bannerText;
+
+  if (gameState !== "playing" || score <= 0) {
+    return;
+  }
+
+  if (
+    previousBestScore > 0 &&
+    score >= previousBestScore * 0.85 &&
+    score <= previousBestScore &&
+    !mobileNotifiedNearBest
+  ) {
+    mobileNotifiedNearBest = true;
+    showAchievementToast("✨ 快追上个人纪录啦", "再稳一点点就超过自己");
+  }
+
+  if (previousBestScore > 0 && score > previousBestScore && !mobileNotifiedNewBest) {
+    mobileNotifiedNewBest = true;
+    showAchievementToast("🎀 新纪录！", "已经超过个人最佳");
+  }
+
+  if (
+    score > top10Threshold &&
+    (top10Threshold > 0 || leaderboardCache.length < 10) &&
+    !mobileNotifiedTop10
+  ) {
+    mobileNotifiedTop10 = true;
+    showAchievementToast("🏆 进入 Top 10！", "榜单席位拿到了");
+  }
+
+  if (
+    score > top3Threshold &&
+    (top3Threshold > 0 || leaderboardCache.length < 3) &&
+    !mobileNotifiedTop3
+  ) {
+    mobileNotifiedTop3 = true;
+    showAchievementToast("👑 冲进前三！", "继续保持节奏");
+  }
+}
+
+function showAchievementToast(title, subtitle) {
+  if (!achievementToast) {
+    return;
+  }
+
+  clearTimeout(achievementToastTimer);
+
+  achievementToast.innerHTML =
+    '<span class="achievement-toast-title">' + title + '</span>' +
+    '<span class="achievement-toast-subtitle">' + subtitle + '</span>';
+
+  achievementToast.classList.add("is-visible");
+
+  achievementToastTimer = setTimeout(function () {
+    achievementToast.classList.remove("is-visible");
+  }, 2200);
+}
+
+function showCountdownToast(number) {
+  if (!countdownToast) {
+    return;
+  }
+
+  clearTimeout(countdownToastTimer);
+
+  countdownToast.innerHTML =
+    '<span class="countdown-toast-icon">🎀</span>' +
+    '<span class="countdown-toast-number">' + number + '</span>' +
+    '<span class="countdown-toast-text">道具快结束啦～</span>';
+
+  countdownToast.classList.remove("is-visible");
+  void countdownToast.offsetWidth;
+  countdownToast.classList.add("is-visible");
+
+  countdownToastTimer = setTimeout(function () {
+    countdownToast.classList.remove("is-visible");
+  }, 760);
+}
+
+function renderLeaderboard(items) {
+  if (!leaderboardList) {
+    return;
+  }
+
+  leaderboardList.innerHTML = "";
+
+  if (items.length === 0) {
+    renderLeaderboardMessage("暂无成绩");
+    return;
+  }
+
+  items.forEach(function (item, index) {
+    const medalMap = ["🥇", "🥈", "🥉"];
+    const li = document.createElement("li");
+    const rank = document.createElement("span");
+    const avatar = document.createElement("span");
+    const playerName = document.createElement("strong");
+    const scoreValue = document.createElement("span");
+    const rowAvatar = item.player_name === currentPlayerName && currentPlayerAvatar
+      ? currentPlayerAvatar
+      : "🐍";
+
+    rank.className = "leaderboard-rank";
+    avatar.className = "leaderboard-avatar";
+    playerName.className = "leaderboard-name";
+    scoreValue.className = "leaderboard-score";
+
+    rank.textContent = medalMap[index] || String(index + 1);
+    avatar.textContent = rowAvatar;
+    playerName.textContent = item.player_name || "匿名玩家";
+    scoreValue.textContent = String(item.score || 0);
+
+    li.appendChild(rank);
+    li.appendChild(avatar);
+    li.appendChild(playerName);
+    li.appendChild(scoreValue);
+    leaderboardList.appendChild(li);
+  });
+}
+
+function renderLeaderboardMessage(message) {
+  if (!leaderboardList) {
+    return;
+  }
+
+  leaderboardList.innerHTML = "";
+
+  const li = document.createElement("li");
+  li.className = "leaderboard-empty";
+  li.textContent = message;
+  leaderboardList.appendChild(li);
 }
 
 function handleKeyDown(event) {
   const key = event.key.toLowerCase();
+
+  if (isTextInputTarget(event.target)) {
+    if (key === "enter" && gameState !== "playing") {
+      event.preventDefault();
+      handleStartButtonClick();
+    }
+
+    return;
+  }
+
   const directionMap = {
     arrowup: { x: 0, y: -1 },
     w: { x: 0, y: -1 },
@@ -430,7 +1401,7 @@ function handleKeyDown(event) {
     return;
   }
 
-  handleDirectionInput(directionMap[key]);
+  changeDirection(directionMap[key]);
 }
 
 function togglePause() {
@@ -447,15 +1418,15 @@ function togglePause() {
 function pauseGame() {
   gameState = "paused";
   pausedAt = performance.now();
-  resetGestureJoystick();
   clearTimeout(moveTimer);
   playSound("pause");
+  pauseBgm();
+  openPauseModal();
 
-  overlay.classList.remove("is-hidden");
-  overlayKicker.textContent = "暂停中";
-  overlayTitle.textContent = "游戏暂停";
-  overlayText.textContent = "按空格或 P 继续游戏。";
-  startButton.textContent = "继续";
+  if (startButton) {
+    startButton.textContent = "继续";
+  }
+
   statusText.textContent = "游戏已暂停";
 }
 
@@ -466,10 +1437,15 @@ function resumeGame() {
   shiftTimedObjects(pausedDuration);
   gameState = "playing";
   pausedAt = 0;
-  overlay.classList.add("is-hidden");
-  startButton.textContent = "重新开局";
+  closePauseModal();
+
+  if (startButton) {
+    startButton.textContent = "重新开局";
+  }
+
   statusText.textContent = "继续移动，别撞到影子";
   playSound("resume");
+  resumeBgm();
   scheduleNextMove();
 }
 
@@ -533,311 +1509,190 @@ function shiftTimedObjects(duration) {
 }
 
 function changeDirection(newDirection) {
-  if (!newDirection) {
-    return false;
-  }
-
   const isReverse =
     currentDirection.x + newDirection.x === 0 &&
     currentDirection.y + newDirection.y === 0;
 
   if (!isReverse) {
-    nextDirection = {
-      x: newDirection.x,
-      y: newDirection.y
-    };
-    return true;
+    nextDirection = newDirection;
   }
-
-  return false;
 }
 
-function handleDirectionInput(direction) {
-  if (gameState !== "playing") {
-    return false;
+function handleGestureStart(event) {
+  event.preventDefault();
+
+  const touch = event.touches[0];
+
+  if (!touch) {
+    return;
   }
 
-  if (!changeDirection(direction)) {
-    if (mobileWaitingForInput) {
-      statusText.textContent = "请选择上、下或右开始";
-    }
+  touchStartPoint = {
+    x: touch.clientX,
+    y: touch.clientY
+  };
 
-    return false;
-  }
-
-  if (mobileWaitingForInput) {
-    mobileWaitingForInput = false;
-    overlay.classList.add("is-hidden");
-    statusText.textContent = "影子正在记录你的路线";
-    scheduleNextMove();
-  }
-
-  return true;
+  gesturePoints = [touchStartPoint];
 }
 
-function isMobileControlMode() {
-  if (navigator.maxTouchPoints > 0) {
-    return true;
+function handleGestureMove(event) {
+  event.preventDefault();
+
+  const touch = event.touches[0];
+
+  if (!touch || !touchStartPoint) {
+    return;
   }
 
-  if (mobileControlQuery) {
-    return mobileControlQuery.matches;
-  }
-
-  return window.innerWidth <= 900;
-}
-
-function setupMobileControls() {
-  mobileControlButtons.forEach(function (button) {
-    button.addEventListener("pointerdown", handleMobileControlPointerDown);
-    button.addEventListener("touchstart", handleMobileControlTouchStart, { passive: false });
-    button.addEventListener("pointerup", clearMobileControlActiveState);
-    button.addEventListener("pointercancel", clearMobileControlActiveState);
-    button.addEventListener("pointerleave", clearMobileControlActiveState);
-    button.addEventListener("touchend", clearMobileControlActiveState, { passive: false });
-    button.addEventListener("touchcancel", clearMobileControlActiveState, { passive: false });
+  gesturePoints.push({
+    x: touch.clientX,
+    y: touch.clientY
   });
 
-  setupGestureJoystick();
-
-  if (!boardWrap) {
-    return;
+  if (gesturePoints.length > 24) {
+    gesturePoints.shift();
   }
-
-  boardWrap.addEventListener("touchstart", handleBoardTouchStart, { passive: false });
-  boardWrap.addEventListener("touchmove", handleBoardTouchMove, { passive: false });
-  boardWrap.addEventListener("touchend", handleBoardTouchEnd, { passive: false });
-  boardWrap.addEventListener("touchcancel", handleBoardTouchCancel, { passive: false });
 }
 
-function setupGestureJoystick() {
-  if (!gestureJoystick || !gestureJoystickKnob) {
-    return;
-  }
-
-  document.addEventListener("pointerdown", handleGesturePointerDown, { passive: false });
-  document.addEventListener("pointermove", handleGesturePointerMove, { passive: false });
-  document.addEventListener("pointerup", handleGesturePointerEnd, { passive: false });
-  document.addEventListener("pointercancel", handleGesturePointerEnd, { passive: false });
-}
-
-function handleGesturePointerDown(event) {
-  if (!isMobileControlMode() || gameState !== "playing" || gestureActive) {
-    return;
-  }
-
-  if (isGestureControlBlocked(event.target)) {
-    return;
-  }
-
+function handleGestureEnd(event) {
   event.preventDefault();
-  event.stopPropagation();
-  ensureAudioReady();
 
-  gestureStartX = event.clientX;
-  gestureStartY = event.clientY;
-  activePointerId = event.pointerId;
-  gestureActive = true;
-
-  gestureJoystick.classList.add("is-active");
-  gestureJoystick.style.left = gestureStartX + "px";
-  gestureJoystick.style.top = gestureStartY + "px";
-  resetGestureJoystickKnob();
-}
-
-function handleGesturePointerMove(event) {
-  if (!gestureActive || event.pointerId !== activePointerId) {
+  if (!touchStartPoint || gesturePoints.length < 2) {
+    resetGesture();
     return;
   }
 
+  const directions = parseGestureDirections(gesturePoints);
+
+  if (directions.length > 0) {
+    enqueueTurnDirections(directions);
+    hideGestureHintAfterUse();
+  }
+
+  resetGesture();
+}
+
+function handleGestureCancel(event) {
   event.preventDefault();
-  event.stopPropagation();
-
-  const dx = event.clientX - gestureStartX;
-  const dy = event.clientY - gestureStartY;
-  const distance = Math.hypot(dx, dy);
-  const limitedDistance = Math.min(distance, joystickRadius);
-  const angle = Math.atan2(dy, dx);
-  const knobX = Math.cos(angle) * limitedDistance;
-  const knobY = Math.sin(angle) * limitedDistance;
-
-  gestureJoystickKnob.style.transform =
-    "translate(calc(-50% + " + knobX + "px), calc(-50% + " + knobY + "px))";
-
-  if (distance < directionThreshold) {
-    return;
-  }
-
-  handleDirectionInput(getGestureDirection(dx, dy));
+  resetGesture();
 }
 
-function handleGesturePointerEnd(event) {
-  if (!gestureActive || event.pointerId !== activePointerId) {
-    return;
-  }
-
-  event.preventDefault();
-  event.stopPropagation();
-  resetGestureJoystick();
+function resetGesture() {
+  touchStartPoint = null;
+  gesturePoints = [];
 }
 
-function isGestureControlBlocked(target) {
-  if (!target || !target.closest) {
-    return false;
+function parseGestureDirections(points) {
+  const rawDirections = [];
+  let anchor = points[0];
+  let lastDirectionName = "";
+
+  for (let i = 1; i < points.length; i = i + 1) {
+    const point = points[i];
+    const dx = point.x - anchor.x;
+    const dy = point.y - anchor.y;
+
+    if (Math.hypot(dx, dy) < gestureMinSegmentDistance) {
+      continue;
+    }
+
+    const directionName = Math.abs(dx) > Math.abs(dy)
+      ? (dx > 0 ? "right" : "left")
+      : (dy > 0 ? "down" : "up");
+
+    if (
+      directionName !== lastDirectionName &&
+      (lastDirectionName === "" || Math.hypot(dx, dy) >= gestureDirectionChangeThreshold)
+    ) {
+      rawDirections.push(directionName);
+      lastDirectionName = directionName;
+      anchor = point;
+    }
+
+    if (rawDirections.length >= 2) {
+      break;
+    }
   }
 
-  return Boolean(target.closest("button") || target.closest(".control-bar"));
+  return rawDirections
+    .map(getDirectionByName)
+    .filter(Boolean);
 }
 
-function getGestureDirection(dx, dy) {
-  if (Math.abs(dx) > Math.abs(dy)) {
-    return dx > 0 ? { x: 1, y: 0 } : { x: -1, y: 0 };
-  }
-
-  return dy > 0 ? { x: 0, y: 1 } : { x: 0, y: -1 };
-}
-
-function resetGestureJoystick() {
-  gestureActive = false;
-  activePointerId = null;
-  gestureStartX = 0;
-  gestureStartY = 0;
-
-  if (!gestureJoystick || !gestureJoystickKnob) {
-    return;
-  }
-
-  gestureJoystick.classList.remove("is-active");
-  resetGestureJoystickKnob();
-}
-
-function resetGestureJoystickKnob() {
-  if (!gestureJoystickKnob) {
-    return;
-  }
-
-  gestureJoystickKnob.style.transform = "translate(-50%, -50%)";
-}
-
-function getDirectionByName(directionName) {
-  const mobileDirectionMap = {
+function getDirectionByName(name) {
+  const directionMap = {
     up: { x: 0, y: -1 },
     down: { x: 0, y: 1 },
     left: { x: -1, y: 0 },
     right: { x: 1, y: 0 }
   };
 
-  return mobileDirectionMap[directionName] || null;
+  return directionMap[name] || null;
 }
 
-function handleMobileControlPointerDown(event) {
-  handleMobileControlDirectionEvent(event);
-}
-
-function handleMobileControlTouchStart(event) {
-  handleMobileControlDirectionEvent(event);
-}
-
-function handleMobileControlDirectionEvent(event) {
-  if (event.cancelable) {
-    event.preventDefault();
-  }
-
-  event.stopPropagation();
-  ensureAudioReady();
-
-  const button = event.currentTarget;
-  const direction = getDirectionByName(button.dataset.direction || button.dataset.dir);
-
-  if (!direction) {
+function enqueueTurnDirections(directions) {
+  if (gameState !== "playing") {
     return;
   }
 
-  button.classList.add("is-pressed");
-  handleDirectionInput(direction);
+  directions.forEach(function (direction) {
+    if (turnQueue.length >= maxTurnQueueLength) {
+      return;
+    }
+
+    if (!isValidQueuedDirection(direction)) {
+      return;
+    }
+
+    const lastQueuedDirection = turnQueue.length > 0
+      ? turnQueue[turnQueue.length - 1]
+      : nextDirection;
+    const isDuplicate =
+      lastQueuedDirection.x === direction.x &&
+      lastQueuedDirection.y === direction.y;
+
+    if (!isDuplicate) {
+      turnQueue.push(direction);
+    }
+  });
 }
 
-function clearMobileControlActiveState(event) {
-  if (event.cancelable) {
-    event.preventDefault();
-  }
+function isReverseDirection(a, b) {
+  return a.x + b.x === 0 && a.y + b.y === 0;
+}
 
-  event.stopPropagation();
+function isValidQueuedDirection(direction) {
+  const baseDirection = turnQueue.length > 0
+    ? turnQueue[turnQueue.length - 1]
+    : currentDirection;
 
-  if (event.currentTarget) {
-    event.currentTarget.classList.remove("is-pressed");
+  return !isReverseDirection(baseDirection, direction);
+}
+
+function consumeTurnQueue() {
+  while (turnQueue.length > 0) {
+    const queuedDirection = turnQueue.shift();
+
+    if (!isReverseDirection(currentDirection, queuedDirection)) {
+      nextDirection = queuedDirection;
+      break;
+    }
   }
 }
 
-function handleBoardTouchStart(event) {
-  event.preventDefault();
-  event.stopPropagation();
-
-  if (event.touches.length !== 1) {
-    resetBoardTouchTracking();
+function hideGestureHintAfterUse() {
+  if (hasUsedMobileGesture || !mobileGestureHint) {
     return;
   }
 
-  touchStartX = event.touches[0].clientX;
-  touchStartY = event.touches[0].clientY;
-  isTouchTracking = true;
-}
-
-function handleBoardTouchMove(event) {
-  event.preventDefault();
-  event.stopPropagation();
-}
-
-function handleBoardTouchEnd(event) {
-  event.preventDefault();
-  event.stopPropagation();
-
-  if (!isTouchTracking) {
-    return;
-  }
-
-  const touch = event.changedTouches[0];
-
-  if (!touch) {
-    resetBoardTouchTracking();
-    return;
-  }
-
-  const deltaX = touch.clientX - touchStartX;
-  const deltaY = touch.clientY - touchStartY;
-  const absX = Math.abs(deltaX);
-  const absY = Math.abs(deltaY);
-  const swipeThreshold = 24;
-
-  resetBoardTouchTracking();
-
-  if (gameState !== "playing" || Math.max(absX, absY) < swipeThreshold) {
-    return;
-  }
-
-  if (absX > absY) {
-    handleDirectionInput(deltaX > 0 ? { x: 1, y: 0 } : { x: -1, y: 0 });
-  } else {
-    handleDirectionInput(deltaY > 0 ? { x: 0, y: 1 } : { x: 0, y: -1 });
-  }
-}
-
-function handleBoardTouchCancel(event) {
-  event.preventDefault();
-  event.stopPropagation();
-  resetBoardTouchTracking();
-}
-
-function resetBoardTouchTracking() {
-  isTouchTracking = false;
-  touchStartX = 0;
-  touchStartY = 0;
+  hasUsedMobileGesture = true;
+  mobileGestureHint.classList.add("is-hidden");
 }
 
 function scheduleNextMove() {
   clearTimeout(moveTimer);
 
-  if (gameState !== "playing" || mobileWaitingForInput) {
+  if (gameState !== "playing") {
     return;
   }
 
@@ -851,6 +1706,7 @@ function stepGame() {
   const now = performance.now();
   removeExpiredObjects(now);
 
+  consumeTurnQueue();
   currentDirection = nextDirection;
 
   const head = snake[0];
@@ -1022,6 +1878,7 @@ function addScore(points, cell, label, color) {
   addFloatingText(cell, label, color);
   grantRewindIfNeeded(cell);
   checkProgressTierUnlocks(cell);
+  updateMobileGoalProgress();
 }
 
 function applyPowerUp(item, cell, now) {
@@ -1050,7 +1907,7 @@ function applyPowerUp(item, cell, now) {
     activeEffect = {
       type: item.type,
       expiresAt: now + hasteDuration,
-      invincibleUntil: now + invincibleDuration,
+      invincibleUntil: now + hasteDuration,
       warnedInvincibleEnding: false,
       warningMarks: {}
     };
@@ -1215,7 +2072,6 @@ function triggerShadowRewind(now) {
     warningMarks: {}
   };
   overlay.classList.add("is-hidden");
-  mobileWaitingForInput = false;
   gameState = "playing";
   addFloatingText(snake[0], "影子回溯", "#d7f5ff", 1200);
   spawnParticles(snake[0], "rewind", 38);
@@ -1467,9 +2323,14 @@ function spawnClearRipple(cell) {
 }
 
 function endGame(reason) {
+  const previousBestScore = bestScore;
+  const finalScore = score;
+  const finalPlayerName = currentPlayerName;
+  const hasNewRecord = finalScore > previousBestScore;
+  const hasTopTen = isTopTenScore(finalScore);
+  const hasTopThree = isTopThreeScore(finalScore);
+
   gameState = "ended";
-  mobileWaitingForInput = false;
-  resetGestureJoystick();
   clearTimeout(moveTimer);
   activeEffect = {
     type: null,
@@ -1480,20 +2341,89 @@ function endGame(reason) {
   };
   comboCount = 0;
   lastFoodEatAt = 0;
-  playSound("death");
+  playSound("gameOver");
+  stopBgm();
 
-  if (score > bestScore) {
+  if (hasNewRecord) {
     bestScore = score;
     saveBestScore(bestScore);
   }
 
+  if (hasNewRecord && hasTopThree) {
+    showAchievementToast("👑 新纪录 & 冲进前三！", "太强啦，这局直接登上榜单～");
+  } else if (hasNewRecord) {
+    showAchievementToast("🎀 新纪录！", "超过了自己的最高分～");
+  } else if (hasTopThree) {
+    showAchievementToast("👑 冲进前三！", "你的分数进入排行榜前三啦～");
+  } else if (hasTopTen) {
+    showAchievementToast("🏆 进入 Top 10！", "这局已经够上榜啦～");
+  }
+
+  if (finalScore > 0 && finalPlayerName) {
+    submitScoreIfNeeded(finalScore, finalPlayerName);
+  } else if (statusText) {
+    statusText.textContent = "本局结束";
+  }
+
   updateHud();
+  closePauseModal();
+  closeLeaderboardModal();
+  closeTutorial();
+  reopenPauseAfterModal = false;
+  endGameSummary = {
+    finalScore: finalScore,
+    reason: reason,
+    hasNewRecord: hasNewRecord,
+    hasTopTen: hasTopTen,
+    hasTopThree: hasTopThree,
+    rank: getLeaderboardRank(finalScore)
+  };
   overlay.classList.remove("is-hidden");
+  overlay.classList.remove("is-start-screen");
+  renderEndGameOverlay();
+
+  if (startButton) {
+    startButton.textContent = "再玩一次";
+  }
+}
+
+function renderEndGameOverlay() {
+  if (!endGameSummary) {
+    return;
+  }
+
+  const lines = [
+    endGameSummary.reason,
+    endGameSummary.hasNewRecord ? "刷新个人纪录" : "个人最佳：" + bestScore,
+    endGameSummary.hasTopThree
+      ? "冲进前三"
+      : (endGameSummary.hasTopTen ? "进入 Top 10" : "暂未进入 Top 10")
+  ];
+
+  if (endGameSummary.rank !== null) {
+    lines.push("榜单排名：第 " + endGameSummary.rank);
+  } else if (endGameSummary.finalScore > 0) {
+    lines.push("榜单排名：提交后更新");
+  }
+
   overlayKicker.textContent = "游戏结束";
-  overlayTitle.textContent = "最终分数 " + score;
-  overlayText.textContent = reason;
-  startButton.textContent = "再玩一次";
-  statusText.textContent = "本局结束";
+  overlayTitle.textContent = "最终分数 " + endGameSummary.finalScore;
+  overlayText.textContent = lines.join("\n");
+
+  if (overlayStartButton) {
+    overlayStartButton.textContent = "再玩一次";
+  }
+}
+
+function updateEndGameLeaderboardSummary() {
+  if (!endGameSummary || gameState !== "ended") {
+    return;
+  }
+
+  endGameSummary.rank = getLeaderboardRank(endGameSummary.finalScore);
+  endGameSummary.hasTopTen = isTopTenScore(endGameSummary.finalScore);
+  endGameSummary.hasTopThree = isTopThreeScore(endGameSummary.finalScore);
+  renderEndGameOverlay();
 }
 
 function getMoveDelay() {
@@ -1551,13 +2481,29 @@ function getSpeedLevel() {
 }
 
 function updateHud() {
-  scoreText.textContent = score;
-  bestScoreText.textContent = bestScore;
-  speedText.textContent = getSpeedLevel();
-  skinText.textContent = getSnakeSkin().name;
+  if (scoreText) {
+    scoreText.textContent = score;
+  }
+
+  if (bestScoreText) {
+    bestScoreText.textContent = bestScore;
+  }
+
+  if (speedText) {
+    speedText.textContent = getSpeedLevel();
+  }
+
+  if (skinText) {
+    skinText.textContent = getSnakeSkin().name;
+  }
+
+  updatePlayerProfile();
   updateComboText(performance.now());
-  rewindText.textContent = rewindCharges + "/" + getMaxRewindCharges();
+  if (rewindText) {
+    rewindText.textContent = rewindCharges + "/" + getMaxRewindCharges();
+  }
   updateEffectText(performance.now());
+  updateMobileGoalProgress();
 }
 
 function getMaxRewindCharges() {
@@ -1577,7 +2523,9 @@ function getMaxRewindCharges() {
 }
 
 function updateComboText(now) {
-  comboText.textContent = "Combo x" + getVisibleComboCount(now);
+  if (comboText) {
+    comboText.textContent = "Combo x" + getVisibleComboCount(now);
+  }
 }
 
 function getVisibleComboCount(now) {
@@ -1589,26 +2537,34 @@ function getVisibleComboCount(now) {
 }
 
 function updateEffectText(now) {
-  if (activeEffect.type === "haste" && now < activeEffect.invincibleUntil) {
-    const invincibleLeft = Math.max(0, (activeEffect.invincibleUntil - now) / 1000).toFixed(1);
-    effectText.textContent = "超频无敌 " + invincibleLeft + "s";
+  if (activeEffect.type === "haste") {
+    const secondsLeft = Math.max(0, (activeEffect.expiresAt - now) / 1000).toFixed(1);
+    if (effectText) {
+      effectText.textContent = "超频 " + secondsLeft + "s";
+    }
     return;
   }
 
   if (now < rewindShield.expiresAt) {
     const shieldLeft = Math.max(0, (rewindShield.expiresAt - now) / 1000).toFixed(1);
-    effectText.textContent = "回溯护盾 " + shieldLeft + "s";
+    if (effectText) {
+      effectText.textContent = "回溯护盾 " + shieldLeft + "s";
+    }
     return;
   }
 
   if (now < evolveShield.expiresAt) {
     const shieldLeft = Math.max(0, (evolveShield.expiresAt - now) / 1000).toFixed(1);
-    effectText.textContent = "进化护盾 " + shieldLeft + "s";
+    if (effectText) {
+      effectText.textContent = "进化护盾 " + shieldLeft + "s";
+    }
     return;
   }
 
   if (activeEffect.type === null) {
-    effectText.textContent = "无";
+    if (effectText) {
+      effectText.textContent = "无";
+    }
     return;
   }
 
@@ -1616,12 +2572,14 @@ function updateEffectText(now) {
   let label = "棱彩加成";
 
   if (activeEffect.type === "haste") {
-    label = "超频中";
+    label = "超频";
   } else if (activeEffect.type === "magnet") {
     label = "磁铁吸附";
   }
 
-  effectText.textContent = label + " " + secondsLeft + "s";
+  if (effectText) {
+    effectText.textContent = label + " " + secondsLeft + "s";
+  }
 }
 
 function getSnakeSkin() {
@@ -1672,6 +2630,7 @@ function checkProgressTierUnlocks(cell) {
       };
       spawnParticles(cell, tier.particleType, getTierUnlockParticleCount(tier));
       playSound("unlock");
+      playBgmForCurrentTier();
       compressSnakeForEvolution(tier, cell);
     }
   });
@@ -1833,14 +2792,14 @@ function flashHudElement(element, className, duration) {
 }
 
 function flashRewindHud(type) {
-  const card = rewindText ? (rewindText.closest(".stats div") || rewindText.parentElement || rewindText) : null;
+  const card = mobileRewindCard || (rewindText ? rewindText.closest(".stat-rewind") || rewindText.closest(".stat-card") : null);
 
   if (type === "gain") {
-    flashHudElement(card, "hud-flash-rewind-gain", 1000);
-    flashHudElement(rewindText, "hud-flash-rewind-number-gain", 1000);
+    flashHudElement(card, "is-rewind-gain", 900);
+    flashHudElement(rewindText, "is-rewind-number-gain", 900);
   } else if (type === "use") {
-    flashHudElement(card, "hud-flash-rewind-use", 1400);
-    flashHudElement(rewindText, "hud-flash-rewind-number-use", 1400);
+    flashHudElement(card, "is-rewind-use", 1200);
+    flashHudElement(rewindText, "is-rewind-number-use", 1200);
   }
 }
 
@@ -1858,8 +2817,8 @@ function getRandomEmptyCell(options) {
 
   for (let i = 0; i < 800; i = i + 1) {
     const cell = {
-      x: Math.floor(Math.random() * gridSize),
-      y: Math.floor(Math.random() * gridSize)
+      x: Math.floor(Math.random() * gridCols),
+      y: Math.floor(Math.random() * gridRows)
     };
 
     if (
@@ -1876,8 +2835,8 @@ function getRandomEmptyCell(options) {
     });
   }
 
-  for (let y = 0; y < gridSize; y = y + 1) {
-    for (let x = 0; x < gridSize; x = x + 1) {
+  for (let y = 0; y < gridRows; y = y + 1) {
+    for (let x = 0; x < gridCols; x = x + 1) {
       const cell = { x: x, y: y };
 
       if (!isBlocked(cell)) {
@@ -1915,7 +2874,7 @@ function ensureFoodCount() {
 }
 
 function getDistanceToEdge(cell) {
-  return Math.min(cell.x, cell.y, gridSize - 1 - cell.x, gridSize - 1 - cell.y);
+  return Math.min(cell.x, cell.y, gridCols - 1 - cell.x, gridRows - 1 - cell.y);
 }
 
 function getEdgeRisk(cell) {
@@ -1961,13 +2920,13 @@ function isSameCell(a, b) {
 }
 
 function isOutsideBoard(cell) {
-  return cell.x < 0 || cell.x >= gridSize || cell.y < 0 || cell.y >= gridSize;
+  return cell.x < 0 || cell.x >= gridCols || cell.y < 0 || cell.y >= gridRows;
 }
 
 function wrapCell(cell) {
   return {
-    x: (cell.x + gridSize) % gridSize,
-    y: (cell.y + gridSize) % gridSize
+    x: (cell.x + gridCols) % gridCols,
+    y: (cell.y + gridRows) % gridRows
   };
 }
 
@@ -2020,13 +2979,6 @@ function removeExpiredObjects(now) {
   }
 
   updateEffectEndingWarnings(now);
-
-  if (activeEffect.type === "haste" && activeEffect.invincibleUntil > 0) {
-    if (now >= activeEffect.invincibleUntil) {
-      activeEffect.invincibleUntil = 0;
-      playSound("shieldEnd");
-    }
-  }
 
   if (activeEffect.type !== null && now > activeEffect.expiresAt) {
     if (activeEffect.type === "magnet" || activeEffect.type === "prism" || activeEffect.type === "haste") {
@@ -2091,6 +3043,23 @@ function playTimedWarnings(effectType, expiresAt, now, marks) {
 
 function playEffectEndingWarning(effectType, level) {
   playSound("warning-countdown-" + level);
+
+  if (countdownTutorialShownCount < maxCountdownTutorialShown) {
+    const countdownNumberMap = {
+      1500: 3,
+      1000: 2,
+      500: 1
+    };
+    const countdownNumber = countdownNumberMap[level];
+
+    if (countdownNumber) {
+      showCountdownToast(countdownNumber);
+    }
+
+    if (level === 500) {
+      countdownTutorialShownCount = countdownTutorialShownCount + 1;
+    }
+  }
 }
 
 function drawFrame(now) {
@@ -2113,9 +3082,7 @@ function drawFrame(now) {
   updateEffectText(renderTime);
   updateComboText(renderTime);
 
-  if (gameState === "playing" && mobileWaitingForInput) {
-    statusText.textContent = "选择方向开始";
-  } else if (gameState === "playing") {
+  if (gameState === "playing") {
     const powerText = getPowerUpStatusText(renderTime);
     const effectStatus = effectText.textContent === "无" ? "无当前效果" : effectText.textContent;
     const shadowText = "预警影子 " + formingShadows.length + " 个 · 实体影子 " + shadowObstacles.length + " 个";
@@ -2133,22 +3100,26 @@ function drawFrame(now) {
 
 function drawBackground() {
   ctx.fillStyle = "#03050a";
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.fillRect(0, 0, boardPixelWidth, boardPixelHeight);
 
   ctx.strokeStyle = "rgba(111, 231, 255, 0.08)";
   ctx.lineWidth = 1;
 
-  for (let i = 0; i <= gridSize; i = i + 1) {
-    const linePosition = i * cellSize;
+  for (let x = 0; x <= gridCols; x = x + 1) {
+    const linePosition = x * cellSize;
 
     ctx.beginPath();
     ctx.moveTo(linePosition, 0);
-    ctx.lineTo(linePosition, canvas.height);
+    ctx.lineTo(linePosition, gridRows * cellSize);
     ctx.stroke();
+  }
+
+  for (let y = 0; y <= gridRows; y = y + 1) {
+    const linePosition = y * cellSize;
 
     ctx.beginPath();
     ctx.moveTo(0, linePosition);
-    ctx.lineTo(canvas.width, linePosition);
+    ctx.lineTo(gridCols * cellSize, linePosition);
     ctx.stroke();
   }
 }
@@ -2182,9 +3153,10 @@ function drawFormingShadows(now) {
   formingShadows.forEach(function (shadow) {
     const progress = Math.min(1, (now - shadow.bornAt) / formingShadowDuration);
     const blink = 0.55 + Math.sin(now / 70) * 0.28;
-    const x = shadow.x * cellSize + 5;
-    const y = shadow.y * cellSize + 5;
-    const size = cellSize - 10;
+    const inset = Math.max(2, cellSize * 0.22);
+    const x = shadow.x * cellSize + inset;
+    const y = shadow.y * cellSize + inset;
+    const size = Math.max(2, cellSize - inset * 2);
 
     ctx.save();
     ctx.strokeStyle = "rgba(255, 116, 232, " + Math.max(0.25, blink) + ")";
@@ -2796,12 +3768,13 @@ function drawCell(cell, color, inset, shadowBlur, shadowColor) {
   ctx.fillStyle = color;
   ctx.shadowBlur = shadowBlur;
   ctx.shadowColor = shadowColor || color;
-  drawRoundedRect(x, y, size, size, 6);
+  drawRoundedRect(x, y, size, size, Math.min(6, size / 2));
   ctx.fill();
   ctx.restore();
 }
 
 function drawRoundedRect(x, y, width, height, radius) {
+  radius = Math.max(0, Math.min(radius, width / 2, height / 2));
   ctx.beginPath();
   ctx.moveTo(x + radius, y);
   ctx.lineTo(x + width - radius, y);
@@ -2915,53 +3888,256 @@ function spawnParticles(cell, type, count) {
   }
 }
 
+function getCurrentBgmSrc() {
+  const tier = getProgressTier();
+
+  if (tier.minScore >= 700) {
+    return "audio/bgm-battle.mp3";
+  }
+
+  if (tier.minScore >= 220) {
+    return "audio/bgm-pink.mp3";
+  }
+
+  return "audio/bgm-default.mp3";
+}
+
+function playBgmForCurrentTier() {
+  if (!soundEnabled || gameState !== "playing") {
+    return;
+  }
+
+  switchBgm(getCurrentBgmSrc());
+}
+
+function switchBgm(newSrc) {
+  if (!newSrc || !soundEnabled) {
+    return;
+  }
+
+  if (currentBgm && currentBgmSrc === newSrc) {
+    return;
+  }
+
+  const previousBgm = currentBgm;
+  const nextBgm = new Audio(newSrc);
+  const switchToken = bgmSwitchToken + 1;
+
+  bgmSwitchToken = switchToken;
+  nextBgm.loop = true;
+  nextBgm.preload = "auto";
+  nextBgm.volume = 0;
+  nextBgm.addEventListener("error", function () {
+    console.warn("背景音乐加载失败：", newSrc);
+  });
+
+  nextBgm.play()
+    .then(function () {
+      if (switchToken !== bgmSwitchToken) {
+        cleanupBgmElement(nextBgm);
+        return;
+      }
+
+      clearBgmFadeTimer();
+      clearOutgoingBgmFadeTimer();
+
+      if (outgoingBgm && outgoingBgm !== previousBgm) {
+        cleanupBgmElement(outgoingBgm);
+      }
+
+      outgoingBgm = previousBgm;
+      currentBgm = nextBgm;
+      currentBgmSrc = newSrc;
+      bgmFadeTimer = fadeAudioElementTo(nextBgm, bgmVolume, 1500, function () {
+        bgmFadeTimer = null;
+      });
+
+      if (outgoingBgm) {
+        const fadingOutBgm = outgoingBgm;
+
+        outgoingBgmFadeTimer = fadeAudioElementTo(fadingOutBgm, 0, 1500, function () {
+          cleanupBgmElement(fadingOutBgm);
+
+          if (outgoingBgm === fadingOutBgm) {
+            outgoingBgm = null;
+          }
+
+          outgoingBgmFadeTimer = null;
+        });
+      }
+    })
+    .catch(function (error) {
+      console.warn("背景音乐播放失败：", error);
+    });
+}
+
+function fadeBgmTo(targetVolume, duration, onComplete) {
+  if (!currentBgm) {
+    return;
+  }
+
+  clearBgmFadeTimer();
+
+  bgmFadeTimer = fadeAudioElementTo(currentBgm, targetVolume, duration, function () {
+    bgmFadeTimer = null;
+
+    if (onComplete) {
+      onComplete();
+    }
+  });
+}
+
+function clearBgmFadeTimer() {
+  if (bgmFadeTimer) {
+    clearInterval(bgmFadeTimer);
+    bgmFadeTimer = null;
+  }
+}
+
+function clearOutgoingBgmFadeTimer() {
+  if (outgoingBgmFadeTimer) {
+    clearInterval(outgoingBgmFadeTimer);
+    outgoingBgmFadeTimer = null;
+  }
+}
+
+function fadeAudioElementTo(audio, targetVolume, duration, onComplete) {
+  const startVolume = audio.volume;
+  const safeTargetVolume = Math.max(0, Math.min(1, targetVolume));
+  const safeDuration = Math.max(1, duration);
+  const startedAt = performance.now();
+
+  const timer = setInterval(function () {
+    const progress = Math.min(1, (performance.now() - startedAt) / safeDuration);
+    audio.volume = startVolume + (safeTargetVolume - startVolume) * progress;
+
+    if (progress >= 1) {
+      clearInterval(timer);
+      audio.volume = safeTargetVolume;
+
+      if (onComplete) {
+        onComplete();
+      }
+    }
+  }, 40);
+
+  return timer;
+}
+
+function pauseBgm() {
+  if (!currentBgm) {
+    return;
+  }
+
+  fadeBgmTo(0.06, 300, function () {
+    if (currentBgm && gameState === "paused") {
+      currentBgm.pause();
+    }
+  });
+}
+
+function resumeBgm() {
+  if (!soundEnabled || gameState !== "playing") {
+    return;
+  }
+
+  if (!currentBgm) {
+    playBgmForCurrentTier();
+    return;
+  }
+
+  currentBgm.play().catch(function (error) {
+    console.warn("背景音乐播放失败：", error);
+  });
+  fadeBgmTo(bgmVolume, 500);
+}
+
+function stopBgm() {
+  const bgmToStop = currentBgm;
+  const outgoingToStop = outgoingBgm;
+  const stopToken = bgmSwitchToken + 1;
+
+  bgmSwitchToken = stopToken;
+  currentBgm = null;
+  currentBgmSrc = "";
+  outgoingBgm = null;
+  clearBgmFadeTimer();
+  clearOutgoingBgmFadeTimer();
+
+  if (bgmToStop) {
+    fadeAudioElementTo(bgmToStop, 0, 1000, function () {
+      if (stopToken === bgmSwitchToken) {
+        cleanupBgmElement(bgmToStop);
+      }
+    });
+  }
+
+  if (outgoingToStop && outgoingToStop !== bgmToStop) {
+    fadeAudioElementTo(outgoingToStop, 0, 800, function () {
+      cleanupBgmElement(outgoingToStop);
+    });
+  }
+}
+
+function cleanupBgmElement(audio) {
+  if (!audio) {
+    return;
+  }
+
+  audio.pause();
+  audio.currentTime = 0;
+  audio.removeAttribute("src");
+  audio.load();
+}
+
 function toggleSound() {
   soundEnabled = !soundEnabled;
   updateSoundButton();
 
-  if (soundEnabled && hasStartedOnce) {
+  if (!soundEnabled) {
+    stopBgm();
+    return;
+  }
+
+  if (hasStartedOnce) {
     ensureAudioReady();
     playSound("ui");
+
+    if (gameState === "playing") {
+      playBgmForCurrentTier();
+    }
   }
 }
 
 function updateSoundButton() {
-  soundButton.textContent = soundEnabled ? "音效：开" : "音效：关";
+  if (soundButton) {
+    soundButton.textContent = soundEnabled ? "声音：开" : "声音：关";
+  }
 }
 
-function showGuideDetail() {
-  if (!guideSummary || !guideDetailPanel) {
-    return;
-  }
+function showMechanicsPanel() {
+  document.body.classList.add("is-viewing-mechanics");
 
-  guideSummary.classList.add("is-hidden");
-  guideDetailPanel.classList.remove("is-hidden");
-
-  if (guideTitle) {
-    guideTitle.textContent = "详细机制";
+  if (mechanicsPanel) {
+    mechanicsPanel.classList.remove("is-hidden");
   }
 
   if (guideDetailButton) {
-    guideDetailButton.classList.add("is-hidden");
+    guideDetailButton.setAttribute("aria-expanded", "true");
   }
 
   playSound("ui");
 }
 
-function showGuideSummary() {
-  if (!guideSummary || !guideDetailPanel) {
-    return;
-  }
+function hideMechanicsPanel() {
+  document.body.classList.remove("is-viewing-mechanics");
 
-  guideDetailPanel.classList.add("is-hidden");
-  guideSummary.classList.remove("is-hidden");
-
-  if (guideTitle) {
-    guideTitle.textContent = "玩法说明";
+  if (mechanicsPanel) {
+    mechanicsPanel.classList.add("is-hidden");
   }
 
   if (guideDetailButton) {
-    guideDetailButton.classList.remove("is-hidden");
+    guideDetailButton.setAttribute("aria-expanded", "false");
   }
 
   playSound("ui");
@@ -2983,6 +4159,42 @@ function ensureAudioReady() {
   } catch (error) {
     audioContext = null;
   }
+}
+
+function getToneGain(baseVolume, gainMultiplier, maxGain) {
+  const safeBaseVolume = Number(baseVolume) || 0;
+  const safeMultiplier = Number(gainMultiplier) || 1;
+  const safeMaxGain = Number(maxGain) || 0.34;
+  const gainValue = Math.min(safeMaxGain, Math.max(0, safeBaseVolume * sfxVolume * safeMultiplier));
+
+  return Math.max(0.0001, gainValue);
+}
+
+function playCountdownCue(frequency, baseGain, duration, waveType, startTime, endFrequency) {
+  const countdownGain = Math.min(0.34, baseGain * sfxVolume * countdownCueVolumeBoost);
+
+  playTone(frequency, duration, waveType, countdownGain, startTime, endFrequency, {
+    attack: 0.01,
+    maxGain: 0.34,
+    rawGain: true
+  });
+}
+
+function duckBgmForCountdown() {
+  if (!currentBgm || !soundEnabled) {
+    return;
+  }
+
+  const originalTarget = bgmVolume;
+  const duckedVolume = Math.max(0.025, bgmVolume * 0.45);
+
+  currentBgm.volume = Math.min(currentBgm.volume, duckedVolume);
+
+  setTimeout(function () {
+    if (currentBgm && soundEnabled && gameState === "playing") {
+      fadeBgmTo(originalTarget, 260);
+    }
+  }, 260);
 }
 
 function playSound(type) {
@@ -3019,18 +4231,23 @@ function playSound(type) {
     playTone(620, 0.08, "square", 0.026, now);
     playTone(420, 0.12, "triangle", 0.028, now + 0.05);
   } else if (type === "rewind") {
-    playTone(980, 0.08, "triangle", 0.034, now);
-    playTone(640, 0.12, "sine", 0.032, now + 0.07);
-    playTone(420, 0.16, "triangle", 0.026, now + 0.16);
+    playTone(980, 0.08, "triangle", 0.052, now);
+    playTone(640, 0.12, "sine", 0.05, now + 0.07);
+    playTone(420, 0.16, "triangle", 0.044, now + 0.16);
   } else if (type === "shadow") {
     playTone(130, 0.2, "sawtooth", 0.035, now);
     playTone(92, 0.18, "triangle", 0.025, now + 0.05);
   } else if (type === "death") {
     playTone(260, 0.18, "sawtooth", 0.05, now);
     playTone(150, 0.26, "sawtooth", 0.045, now + 0.12);
+  } else if (type === "gameOver") {
+    playTone(740, 0.11, "sine", 0.06, now);
+    playTone(620, 0.13, "triangle", 0.056, now + 0.1);
+    playTone(480, 0.18, "sine", 0.052, now + 0.22);
+    playTone(880, 0.08, "triangle", 0.025, now + 0.42);
   } else if (type === "phase") {
-    playTone(760, 0.08, "triangle", 0.04, now);
-    playTone(1180, 0.1, "sine", 0.026, now + 0.04);
+    playTone(760, 0.08, "triangle", 0.05, now);
+    playTone(1180, 0.1, "sine", 0.035, now + 0.04);
   } else if (type === "shield-end") {
     playTone(620, 0.16, "triangle", 0.014, now, 420);
     playTone(1080, 0.18, "sine", 0.007, now + 0.018, 760);
@@ -3042,28 +4259,32 @@ function playSound(type) {
     playTone(540, 0.06, "sine", 0.025, now);
     playTone(720, 0.07, "sine", 0.02, now + 0.04);
   } else if (type === "unlock") {
-    playTone(420, 0.62, "triangle", 0.034, now, 980);
-    playTone(760, 0.58, "sine", 0.026, now + 0.015, 1760);
-    playTone(1880, 0.32, "sine", 0.008, now + 0.06, 2880);
+    playTone(420, 0.62, "triangle", 0.055, now, 980);
+    playTone(760, 0.58, "sine", 0.044, now + 0.015, 1760);
+    playTone(1880, 0.32, "sine", 0.018, now + 0.06, 2880);
   } else if (type === "powerUp") {
-    playTone(640, 0.11, "triangle", 0.032, now);
-    playTone(960, 0.13, "sine", 0.024, now + 0.035);
+    playTone(640, 0.11, "triangle", 0.07, now);
+    playTone(960, 0.13, "sine", 0.05, now + 0.035);
   } else if (type === "warning-countdown-1500") {
-    playTone(820, 0.075, "sine", 0.02, now);
+    duckBgmForCountdown();
+    playCountdownCue(620, 0.13, 0.15, "triangle", now);
   } else if (type === "warning-countdown-1000") {
-    playTone(1040, 0.08, "sine", 0.024, now);
+    duckBgmForCountdown();
+    playCountdownCue(760, 0.16, 0.16, "triangle", now);
   } else if (type === "warning-countdown-500") {
-    playTone(1320, 0.09, "triangle", 0.028, now);
+    duckBgmForCountdown();
+    playCountdownCue(920, 0.2, 0.18, "triangle", now);
+    playCountdownCue(1220, 0.11, 0.12, "sine", now + 0.045);
   } else if (type === "warning-haste" || type === "warning-hasteShield") {
-    playTone(920, 0.04, "square", 0.018, now);
-    playTone(700, 0.05, "square", 0.016, now + 0.045);
+    playTone(920, 0.04, "square", 0.022, now);
+    playTone(700, 0.05, "square", 0.02, now + 0.045);
   } else if (type === "warning-soft" || type === "warning-prism") {
-    playTone(1040, 0.08, "sine", 0.02, now);
+    playTone(1040, 0.08, "sine", 0.024, now);
   } else if (type === "warning-magnet") {
-    playTone(520, 0.05, "square", 0.015, now);
-    playTone(360, 0.06, "triangle", 0.014, now + 0.05);
+    playTone(520, 0.05, "square", 0.019, now);
+    playTone(360, 0.06, "triangle", 0.018, now + 0.05);
   } else if (type === "warning-evolveShield" || type === "warning-rewindShield") {
-    playTone(620, 0.05, "sine", 0.014, now);
+    playTone(620, 0.05, "sine", 0.018, now);
   }
 }
 
@@ -3091,10 +4312,14 @@ function playFoodComboSound(combo) {
   playTone(mainFreq * 1.5, 0.07, "triangle", 0.026, now + 0.045);
 }
 
-function playTone(frequency, duration, waveType, volume, startTime, endFrequency) {
+function playTone(frequency, duration, waveType, volume, startTime, endFrequency, options) {
   const oscillator = audioContext.createOscillator();
   const gain = audioContext.createGain();
   const endTime = startTime + duration;
+  const attack = options && options.attack ? options.attack : 0.015;
+  const gainValue = options && options.rawGain
+    ? Math.max(0.0001, Math.min(options.maxGain || 0.34, volume))
+    : getToneGain(volume, options && options.gainMultiplier, options && options.maxGain);
 
   oscillator.type = waveType;
   oscillator.frequency.setValueAtTime(frequency, startTime);
@@ -3104,7 +4329,7 @@ function playTone(frequency, duration, waveType, volume, startTime, endFrequency
   }
 
   gain.gain.setValueAtTime(0.0001, startTime);
-  gain.gain.exponentialRampToValueAtTime(volume, startTime + 0.015);
+  gain.gain.exponentialRampToValueAtTime(gainValue, startTime + attack);
   gain.gain.exponentialRampToValueAtTime(0.0001, endTime);
 
   oscillator.connect(gain);
